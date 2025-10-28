@@ -272,6 +272,33 @@ cancelCallRequest: async (streamId) => {
   }
 },
 
+/**
+ * End user's own call (when viewer wants to leave call)
+ * API: POST /streams/:streamId/call/end-user-call
+ * 
+ * @param {string} streamId - Stream ID
+ */
+async endUserCall(streamId) {
+  try {
+    console.log('📡 Ending user call:', streamId);
+    const response = await apiClient.post(`/streams/${streamId}/call/end-user-call`);
+    
+    if (response.data.success) {
+      console.log('✅ User call ended');
+      return {
+        success: true,
+        message: response.data.message,
+      };
+    }
+    
+    throw new Error(response.data.message || 'Failed to end call');
+  } catch (error) {
+    console.error('❌ End user call error:', error);
+    throw error;
+  }
+},
+
+
 };
 
 export default livestreamService;

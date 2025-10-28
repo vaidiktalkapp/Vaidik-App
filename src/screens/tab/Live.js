@@ -18,6 +18,7 @@ import {
   ScrollView,
   PermissionsAndroid, // ✅ ADD THIS
 } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import {
   createAgoraRtcEngine,
   ChannelProfileType,
@@ -454,111 +455,135 @@ const initializeAgora = async (channelName, token, uid) => {
 
 
   const connectSocket = async (streamId) => {
+  if (!userId) return;
+  
   try {
-    console.log('🔌 Viewer connecting socket:', streamId);
-    
+    console.log('🔌 Viewer connecting socket:', { streamId, userId, userName });
+
     await streamSocketService.connect(streamId, userId, userName, false);
     
+    console.log('✅ Socket connected');
+
     // ✅ Existing listeners
     streamSocketService.onNewComment(handleNewComment);
     streamSocketService.onNewLike(handleNewLike);
     streamSocketService.onNewGift(handleNewGift);
     streamSocketService.onViewerJoined(handleViewerJoined);
-    streamSocketService.onViewerLeft(handleViewerLeft);
-    streamSocketService.onViewerCountUpdated((data) => {
-      setViewerCount(data.count);
-    });
+    streamSocketService.onViewerCountUpdated(handleViewerCountUpdate);
     
-    // ✅ FIX ISSUE 3: Listen for call acceptance
+    // ✅ FIX ISSUE: Listen for call_accepted (THIS IS THE KEY!)
     streamSocketService.onCallAccepted((data) => {
       console.log('====================================');
-      console.log('📞 VIEWER: CALL ACCEPTED EVENT');
-      console.log('Data:', data);
+      console.log('📞 VIEWER: call_accepted EVENT RECEIVED');
+      console.log('Data:', JSON.stringify(data, null, 2));
       console.log('My User ID:', userId);
       console.log('Accepted User ID:', data.userId);
       console.log('====================================');
       
-      // ✅ Check if this call acceptance is for ME
-      if (data.userId === userId) {
+      // Check if this call acceptance is for ME
+      if (String(data.userId) === String(userId)) {
         console.log('✅ MY CALL WAS ACCEPTED!');
-        
-        setCallAccepted(true);
-        setCallData({
-          callType: data.callType,
-          callMode: data.callMode,
-          startedAt: new Date(),
-        });
-        
-        // ✅ CRITICAL: Switch from audience to broadcaster
-        upgradeToHost(data.callerAgoraUid);
-        
-        Alert.alert('Call Started', 'Your call has been accepted!');
+        handleCallStarted(data);
       } else {
-        // ✅ Someone else's call was accepted
         console.log('ℹ️ Another viewer\'s call was accepted');
-        
         setCurrentCall({
           userId: data.userId,
           userName: data.userName,
           callType: data.callType,
           callMode: data.callMode,
           callerAgoraUid: data.callerAgoraUid,
-          startedAt: new Date(),
         });
       }
     });
     
-    // ✅ FIX ISSUE 3: Listen for call rejection
+    // ✅ FIX: Listen for call_rejected
     streamSocketService.onCallRejected((data) => {
       console.log('====================================');
-      console.log('❌ VIEWER: CALL REJECTED EVENT');
-      console.log('Data:', data);
-      console.log('My User ID:', userId);
-      console.log('Rejected User ID:', data.userId);
+      console.log('❌ VIEWER: call_rejected EVENT RECEIVED');
+      console.log('Data:', JSON.stringify(data, null, 2));
       console.log('====================================');
       
-      if (data.userId === userId) {
+      if (String(data.userId) === String(userId)) {
         console.log('❌ MY CALL WAS REJECTED');
         
-        // ✅ Clear call request state
         setCallAccepted(false);
         setCallData(null);
-        setCallRequestSent(false);
+        setWaitingForCall(false);
+        setHasRequestedCall(false);
         
-        Alert.alert('Call Rejected', 'The host rejected your call request');
+        Alert.alert('Call Rejected', 'The astrologer rejected your call request');
       }
     });
     
-    // ✅ FIX ISSUE 2 & 3: Listen for call end
-    streamSocketService.onCallEnded((data) => {
-      console.log('====================================');
-      console.log('📞 VIEWER: CALL ENDED EVENT');
-      console.log('Data:', data);
-      console.log('Duration:', data.duration);
-      console.log('Charge:', data.charge);
-      console.log('====================================');
+    // ✅ Listen for call_ended (for call end sync)
+streamSocketService.onCallEnded((data) => {
+  console.log('====================================');
+  console.log('📞 VIEWER: call_ended EVENT RECEIVED');
+  console.log('Data:', JSON.stringify(data, null, 2));
+  console.log('====================================');
+  
+  // ✅ Clear BOTH call states
+  setCurrentCall(null);
+  setCallData(null);
+  setCallAccepted(false);
+  setHasRequestedCall(false);
+  setWaitingForCall(false);
+  
+  // If I was on the call, downgrade
+  if (callAccepted) {
+    console.log('🔄 I was on call - performing cleanup');
+    leaveCall();
+  }
+  
+  console.log('✅ All call state cleared from socket event');
+});
+    
+    // ✅ Keep existing call_started listener for backward compatibility
+    streamSocketService.onCallStarted((data) => {
+      console.log('📞 CALL STARTED (legacy):', data);
+      setCurrentCall({
+        userId: data.userId,
+        userName: data.userName,
+        callType: data.callType,
+        callMode: data.callMode,
+        callerAgoraUid: data.callerAgoraUid,
+      });
       
-      // ✅ CRITICAL: Reset ALL call-related state
-      handleCallEnd();
+      if (String(data.userId) === String(userId)) {
+        handleCallStarted(data);
+      }
     });
     
-    // ✅ Listen for host mic/camera toggles
-    streamSocketService.onHostMicToggled((data) => {
-      console.log('🎤 Host mic toggled:', data.enabled);
-      // Optional: Show toast or indicator
+    // ✅ Keep call_finished for call end
+    streamSocketService.onCallFinished((data) => {
+      console.log('📞 CALL FINISHED:', data);
+      setCurrentCall(null);
+      if (callAccepted && callData) leaveCall();
     });
     
-    streamSocketService.onHostCameraToggled((data) => {
-      console.log('📹 Host camera toggled:', data.enabled);
-      // Optional: Show toast or indicator
+    streamSocketService.onCallRequestRejected((data) => {
+      console.log('❌ CALL REJECTED (legacy):', data);
+      if (String(data.userId) === String(userId)) {
+        setWaitingForCall(false);
+        setHasRequestedCall(false);
+        setCallAccepted(false);
+        setCallData(null);
+        Alert.alert('Call Rejected', data.reason || 'The astrologer declined your request');
+      }
     });
-    
-    console.log('✅ All socket listeners registered');
-    
+
+    streamSocketService.on('stream_ended', (data) => {
+      Alert.alert('Stream Ended', `The livestream has ended: ${data.reason}`, [
+        { text: 'OK', onPress: () => { cleanup(); navigation.goBack(); }}
+      ]);
+    });
+
+    console.log('✅ All listeners registered');
   } catch (error) {
     console.error('❌ Socket connection error:', error);
   }
 };
+
 
 
 
@@ -598,71 +623,79 @@ const initializeAgora = async (channelName, token, uid) => {
 
   const handleCallStarted = async (data) => {
   console.log('====================================');
-  console.log('📞 CALL STARTED EVENT RECEIVED');
+  console.log('📞 PROCESSING CALL START');
   console.log('Event Data:', JSON.stringify(data, null, 2));
   console.log('====================================');
   
   const isForMe = String(data.userId) === String(userId);
-  const hasCredentials = !!data.token && !!data.channelName;
+  const hasCredentials = !!data.token || !!data.channelName;
   
   console.log('🔍 Is for me:', isForMe);
   console.log('🔍 Has credentials:', hasCredentials);
   console.log('🔍 Already in call:', callAccepted);
   
-  if (isForMe && hasCredentials && !callAccepted) {
-    console.log('✅ This is MY call - processing...');
+  if (!isForMe) {
+    console.log('ℹ️ Call is not for me, ignoring');
+    return;
+  }
+  
+  if (callAccepted) {
+    console.log('⚠️ Already in call, ignoring duplicate event');
+    return;
+  }
+  
+  console.log('✅ Processing MY call...');
+  
+  try {
+    // Mark as accepted immediately
+    setCallAccepted(true);
+    setWaitingForCall(false);
+    setHasRequestedCall(false);
     
-    try {
-      setCallAccepted(true);
-      setWaitingForCall(false);
-      
-      console.log('====================================');
-      console.log('🎥 UPGRADING TO BROADCASTER');
-      console.log('Channel:', data.channelName);
-      console.log('My UID:', data.uid || data.callerAgoraUid);
-      console.log('====================================');
-      
-      // ✅ Step 1: Set client role to BROADCASTER
-      await engineRef.current.setClientRole(ClientRoleType.ClientRoleBroadcaster);
-      console.log('✅ Role set to BROADCASTER');
-      
-      // ✅ Step 2: Enable LOCAL video and audio
-      await engineRef.current.enableLocalVideo(true);
-      await engineRef.current.enableLocalAudio(true);
-      console.log('✅ Local video/audio enabled');
-      
-      // ✅ Step 3: Start preview
-      await engineRef.current.startPreview();
-      console.log('✅ Preview started');
-      
-      // ✅ Step 4: CRITICAL - Mute/unmute to force video publishing
-      await engineRef.current.muteLocalVideoStream(false);
-      await engineRef.current.muteLocalAudioStream(false);
-      console.log('✅ Video/audio streams unmuted and publishing');
-      
-      // ✅ Step 5: Update state
-      setCallData({
-        callType: data.callType,
-        callMode: data.callMode,
-        callerAgoraUid: data.uid || data.callerAgoraUid,
-      });
-      
-      console.log('====================================');
-      console.log('✅✅✅ BROADCASTER UPGRADE COMPLETE');
-      console.log('Now publishing video to all viewers!');
-      console.log('====================================');
-      
-      Alert.alert('Call Started', 'You are now live!');
-      
-    } catch (error) {
-      console.error('❌ Error upgrading to broadcaster:', error);
-      setCallAccepted(false);
-      Alert.alert('Error', 'Failed to join call: ' + error.message);
-    }
-  } else if (isForMe && callAccepted) {
-    console.log('⚠️ Duplicate event - ignoring');
+    console.log('====================================');
+    console.log('🎥 UPGRADING TO BROADCASTER');
+    console.log('====================================');
+    
+    // ✅ Step 1: Set client role to BROADCASTER
+    await engineRef.current.setClientRole(ClientRoleType.ClientRoleBroadcaster);
+    console.log('✅ Role set to BROADCASTER');
+    
+    // ✅ Step 2: Enable LOCAL video and audio
+    await engineRef.current.enableLocalVideo(true);
+    await engineRef.current.enableLocalAudio(true);
+    console.log('✅ Local video/audio enabled');
+    
+    // ✅ Step 3: Start preview
+    await engineRef.current.startPreview();
+    console.log('✅ Preview started');
+    
+    // ✅ Step 4: Force unmute to publish streams
+    await engineRef.current.muteLocalVideoStream(false);
+    await engineRef.current.muteLocalAudioStream(false);
+    console.log('✅ Streams unmuted and publishing');
+    
+    // ✅ Step 5: Update state
+    setCallData({
+      callType: data.callType,
+      callMode: data.callMode,
+      callerAgoraUid: data.callerAgoraUid || data.uid,
+    });
+    
+    console.log('====================================');
+    console.log('✅✅✅ BROADCASTER UPGRADE COMPLETE');
+    console.log('Now publishing video to all viewers!');
+    console.log('====================================');
+    
+    Alert.alert('Call Started', 'You are now live!');
+    
+  } catch (error) {
+    console.error('❌ Error upgrading to broadcaster:', error);
+    setCallAccepted(false);
+    setWaitingForCall(false);
+    Alert.alert('Error', 'Failed to join call: ' + error.message);
   }
 };
+
 
 
   /**
@@ -697,32 +730,64 @@ const initializeAgora = async (channelName, token, uid) => {
   }
 };
 
-
-
-  const leaveCall = async () => {
-    try {
-      console.log('📴 Leaving call...');
-      
-      // ✅ Stop camera preview
-      if (engineRef.current && callData?.callType === 'video') {
+const leaveCall = async () => {
+  try {
+    console.log('====================================');
+    console.log('📴 LEAVING CALL - COMPLETE CLEANUP');
+    console.log('Clearing callData:', callData);
+    console.log('Clearing currentCall:', currentCall);
+    console.log('====================================');
+    
+    // ✅ CRITICAL: Clear BOTH call states
+    setCallAccepted(false);
+    setCallData(null);           // ✅ My call data
+    setCurrentCall(null);         // ✅ OTHER people's call data
+    setHasRequestedCall(false);
+    setWaitingForCall(false);
+    setIsMuted(false);
+    setIsCameraOff(false);
+    
+    console.log('✅ Both callData and currentCall cleared');
+    
+    // Small delay for state to propagate
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Then cleanup Agora
+    if (engineRef.current) {
+      try {
         await engineRef.current.stopPreview();
+        console.log('✅ Preview stopped');
+      } catch (e) {
+        console.warn('Preview stop error:', e);
       }
-
-      setCallAccepted(false);
-      setCallData(null);
-      setHasRequestedCall(false);
-      setIsMuted(false);
-      setIsCameraOff(false);
       
-      // ✅ Rejoin as viewer
-      const currentStream = streams[currentIndex];
-      if (currentStream) {
-        await joinStream(currentStream, currentIndex);
+      try {
+        await engineRef.current.muteLocalVideoStream(true);
+        await engineRef.current.muteLocalAudioStream(true);
+        await engineRef.current.enableLocalVideo(false);
+        await engineRef.current.enableLocalAudio(false);
+        console.log('✅ Local streams disabled');
+      } catch (e) {
+        console.warn('Disable streams error:', e);
       }
-    } catch (error) {
-      console.error('Leave call error:', error);
+      
+      try {
+        await engineRef.current.setClientRole(ClientRoleType.ClientRoleAudience);
+        console.log('✅ Downgraded to AUDIENCE');
+      } catch (e) {
+        console.warn('Role change error:', e);
+      }
     }
-  };
+    
+    console.log('✅ Call cleanup complete - back to viewing mode');
+    console.log('====================================');
+    
+  } catch (error) {
+    console.error('❌ Leave call error:', error);
+  }
+};
+
+
 
   // ✅ FIX ISSUE 2 & 3: Comprehensive call end handler
 const handleCallEnd = async () => {
@@ -814,7 +879,6 @@ const upgradeToHost = async (myAgoraUid) => {
   }
 };
 
-// ✅ FIX ISSUE 3: Let caller end their own call
 const handleEndMyCall = () => {
   Alert.alert(
     'End Call',
@@ -826,24 +890,50 @@ const handleEndMyCall = () => {
         style: 'destructive',
         onPress: async () => {
           try {
-            console.log('📞 User ending their own call');
+            console.log('====================================');
+            console.log('📞 USER ENDING CALL');
+            console.log('Stream ID:', currentStream?.streamId);
+            console.log('====================================');
             
-            // ✅ Call backend API to end call
-            const response = await livestreamService.endUserCall(currentStream.streamId);
-            
-            if (response.success) {
-              // ✅ Socket event will be received, handleCallEnd will be called
-              console.log('✅ Call end requested');
+            // ✅ Method 1: Try dedicated end-user-call endpoint (if exists)
+            try {
+              if (livestreamService.endUserCall) {
+                await livestreamService.endUserCall(currentStream.streamId);
+                console.log('✅ Call ended via endUserCall');
+              } else {
+                // ✅ Method 2: Fall back to cancel call
+                await livestreamService.cancelCallRequest(currentStream.streamId);
+                console.log('✅ Call cancelled via cancelCallRequest');
+              }
+            } catch (apiError) {
+              console.warn('⚠️ API call failed:', apiError.message);
+              // Continue to local cleanup even if API fails
             }
+            
+            // ✅ Always perform local cleanup
+            console.log('🧹 Performing local cleanup...');
+            await leaveCall();
+            
+            console.log('✅ Successfully left call');
+            
           } catch (error) {
             console.error('❌ End call error:', error);
-            Alert.alert('Error', 'Failed to end call');
+            
+            // ✅ Force cleanup even on error
+            try {
+              await leaveCall();
+            } catch (cleanupError) {
+              console.error('❌ Cleanup error:', cleanupError);
+            }
+            
+            Alert.alert('Call Ended', 'You have been disconnected from the call');
           }
         }
       }
     ]
   );
 };
+
 
 
   const cancelCallRequest = async () => {
@@ -1108,41 +1198,50 @@ const handleEndMyCall = () => {
         decelerationRate="fast"
         renderItem={({ item, index }) => (
           <View style={styles.streamContainer}>
-{/* ✅ FIXED VIDEO VIEW - ROBUST VERSION */}
-{/* ✅ ENHANCED VIDEO RENDERING - FIXES BLACK SCREEN */}
+{/* ✅ FIXED VIDEO RENDERING */}
 {index === currentIndex ? (
-  isJoined && (hostAgoraUid || remoteUsers.size > 0) ? (
-    callAccepted && callData?.callType === 'video' ? (
-      // ✅ Split screen - I'M on video call
-      <View style={styles.splitScreenContainer}>
-        {/* Host Video - Top */}
-        <View style={styles.remoteVideoHalf}>
-          <RtcSurfaceView 
-            style={styles.halfVideo} 
-            canvas={{ uid: hostAgoraUid || Array.from(remoteUsers.keys())[0] }}
-            renderMode={1}
-            zOrderMediaOverlay={false}
-          />
-          <View style={styles.videoNameTag}>
-            <Text style={styles.videoNameText}>{currentStream?.hostId?.name} (Host)</Text>
+  isJoined ? (
+    // ✅ Check if I'm on a call (callAccepted AND callData exist)
+    callAccepted && callData ? (
+      // ✅ I'm on a video call - show split screen
+      callData.callType === 'video' ? (
+        <View style={styles.splitScreenContainer}>
+          {/* Host Video - Top */}
+          <View style={styles.remoteVideoHalf}>
+            <RtcSurfaceView 
+              style={styles.halfVideo} 
+              canvas={{ uid: hostAgoraUid || Array.from(remoteUsers.keys())[0] }}
+              renderMode={1}
+              zOrderMediaOverlay={false}
+            />
+            <View style={styles.videoNameTag}>
+              <Text style={styles.videoNameText}>{item.hostId?.name} (Host)</Text>
+            </View>
+          </View>
+          
+          {/* MY Video - Bottom */}
+          <View style={styles.localVideoHalf}>
+            <RtcSurfaceView 
+              style={styles.halfVideo} 
+              canvas={{ uid: 0 }}
+              zOrderMediaOverlay={true}
+              renderMode={1}
+            />
+            <View style={styles.videoNameTag}>
+              <Text style={styles.videoNameText}>You</Text>
+            </View>
           </View>
         </View>
-        
-        {/* MY Video - Bottom (uid: 0 for local) */}
-        <View style={styles.localVideoHalf}>
-          <RtcSurfaceView 
-            style={styles.halfVideo} 
-            canvas={{ uid: 0 }}
-            zOrderMediaOverlay={true}
-            renderMode={1}
-          />
-          <View style={styles.videoNameTag}>
-            <Text style={styles.videoNameText}>{userName} (You)</Text>
-          </View>
-        </View>
-      </View>
+      ) : (
+        // Voice call - just show host
+        <RtcSurfaceView 
+          style={styles.video} 
+          canvas={{ uid: hostAgoraUid || Array.from(remoteUsers.keys())[0] }}
+          renderMode={1}
+        />
+      )
     ) : currentCall && currentCall.callType === 'video' ? (
-      // ✅ Split screen - watching SOMEONE ELSE's call
+      // ✅ Watching someone else's call
       <View style={styles.splitScreenContainer}>
         {/* Host Video */}
         <View style={styles.remoteVideoHalf}>
@@ -1152,11 +1251,11 @@ const handleEndMyCall = () => {
             renderMode={1}
           />
           <View style={styles.videoNameTag}>
-            <Text style={styles.videoNameText}>{currentStream?.hostId?.name}</Text>
+            <Text style={styles.videoNameText}>{item.hostId?.name}</Text>
           </View>
         </View>
         
-        {/* Caller Video (not me) */}
+        {/* Other Caller Video */}
         <View style={styles.localVideoHalf}>
           {currentCall.callerAgoraUid && remoteUsers.has(currentCall.callerAgoraUid) ? (
             <>
@@ -1179,7 +1278,7 @@ const handleEndMyCall = () => {
         </View>
       </View>
     ) : (
-      // ✅ Full screen - normal viewing
+      // ✅ Normal viewing - full screen host
       <RtcSurfaceView 
         style={styles.video} 
         canvas={{ uid: hostAgoraUid || Array.from(remoteUsers.keys())[0] }}
@@ -1194,6 +1293,7 @@ const handleEndMyCall = () => {
     </View>
   )
 ) : (
+  // Not current slide
   <View style={styles.videoPlaceholder}>
     <Image 
       source={{ uri: item.hostId?.profilePicture }} 
@@ -1201,9 +1301,6 @@ const handleEndMyCall = () => {
     />
   </View>
 )}
-
-
-
 
           </View>
         )}

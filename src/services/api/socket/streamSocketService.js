@@ -24,14 +24,14 @@ class StreamSocketService {
 
       console.log('====================================');
       console.log('🔌 Creating socket connection...');
-      console.log('URL: http://192.168.1.23:3001/stream');
+      console.log('URL: http://192.168.1.10:3001/stream');
       console.log('User ID:', userId);
       console.log('User Name:', userName);
       console.log('Is Host:', isHost);
       console.log('====================================');
 
       return new Promise((resolve, reject) => {
-        this.socket = io('http://192.168.1.23:3001/stream', {
+        this.socket = io('http://192.168.1.10:3001/stream', {
           transports: ['websocket'],
           query: { userId, userName },
           auth: { token: accessToken },
