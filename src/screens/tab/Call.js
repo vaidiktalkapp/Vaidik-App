@@ -16,7 +16,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import HeaderIcons from '../../component/HeaderIcons';
-import astrologerService from '../../services/api/AstrologerService';
+// import astrologerService from '../../services/api/AstrologerService';
+import astrologerService from '../../services/api/astrologerService';
 import orderService from '../../services/api/OrderService';
 import walletService from '../../services/api/WalletService';
 import { useAuth } from '../../context/AuthContext';
@@ -278,11 +279,11 @@ const Call = ({ navigation }) => {
     loadWalletBalance();
     loadRecentOrders();
     loadAstrologers(true);
-  }, []);
+  }, );
 
   useEffect(() => {
     loadAstrologers(true);
-  }, [activeTab, selectedFilters]);
+  }, );
 
   // Handle call button press
   const handleCallPress = async (astrologer) => {

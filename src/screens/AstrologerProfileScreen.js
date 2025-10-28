@@ -15,7 +15,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import astrologerService from '../services/api/AstrologerService';
+// import astrologerService from '../services/api/AstrologerService';
+import astrologerService from '../services/api/astrologerService';
 import userService from '../services/api/UserService';
 import orderService from '../services/api/OrderService';
 import walletService from '../services/api/WalletService';
@@ -34,7 +35,7 @@ const AstrologerProfileScreen = ({ route, navigation }) => {
   useEffect(() => {
     fetchAstrologerProfile();
     loadWalletBalance();
-  }, []);
+  }, );
   
   const loadWalletBalance = async () => {
     try {

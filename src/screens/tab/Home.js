@@ -17,7 +17,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import HeaderIcons from '../../component/HeaderIcons';
-import astrologerService from '../../services/api/AstrologerService';
+// import astrologerService from '../../services/api/AstrologerService';
+import astrologerService from '../../services/api/astrologerService';
 import livestreamService from '../../services/api/LivestreamService';
 import walletService from '../../services/api/WalletService';
 import userService from '../../services/api/UserService';
@@ -81,7 +82,7 @@ const Home = ({ navigation }) => {
       clearInterval(bannerInterval);
       clearInterval(liveInterval);
     };
-  }, []);
+  }, );
 
   // ✅ Load all home screen data
   const loadHomeData = async () => {

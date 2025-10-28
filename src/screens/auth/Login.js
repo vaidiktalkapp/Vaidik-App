@@ -43,7 +43,7 @@ const Login = ({ navigation }) => {
       }
     };
     init();
-  }, []);
+  },);
 
 
   useEffect(() => {
@@ -60,7 +60,7 @@ const Login = ({ navigation }) => {
     if (error) {
       Alert.alert('Error', error, [{ text: 'OK', onPress: () => clearError() }]);
     }
-  }, [error]);
+  }, );
 
   /**
    * Handle Truecaller success
@@ -246,7 +246,7 @@ const Login = ({ navigation }) => {
       <View style={styles.phoneContainer}>
         <Image source={require('../../assets/flag.png')} style={styles.flagIcon} />
         <Text style={styles.INText}>IN</Text>
-        <Text style={styles.countryCode}>+{countryCode}</Text>
+        <Text style={styles.countryCode}>{countryCode}</Text>
         <TextInput
           style={styles.input}
           placeholder="Phone number"
