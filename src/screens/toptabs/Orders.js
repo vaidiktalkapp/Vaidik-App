@@ -1,111 +1,3 @@
-// // screens/TabOneScreen.js
-// import React from 'react';
-// import {
-//   View,
-//   Text,
-//   StyleSheet,
-//   TouchableOpacity,
-//   Image,
-//   FlatList,
-// } from 'react-native';
-
-// // Dummy Data
-// const orders = [
-//   {
-//     id: '1',
-//     name: 'Astrologer',
-//     message: 'Aane wale 6 mahine mein kuch badlav dik...',
-//     date: '20 Sep 2025',
-//     // avatar: require('./assets/astrologer.png'), // replace with your astrologer icon
-//   },
-//   {
-//     id: '2',
-//     name: 'Astrologer',
-//     message: 'Ek baar recharge karke chat time badha lij...',
-//     date: '23 Mar 2025',
-//     // avatar: require('./assets/astrologer.png'),
-//   },
-//   {
-//     id: '3',
-//     name: 'Vanshujeet',
-//     message: 'last December tak',
-//     date: '10 Jul 2024',
-//     // avatar: require('./assets/vanshujeet.png'), // replace with real image
-//   },
-//   {
-//     id: '4',
-//     name: 'Maaya',
-//     message: 'aapki taraf se jawab na aane Ke Karan ha...',
-//     date: '08 Sep 2023',
-//     // avatar: require('./assets/maaya.png'),
-//   },
-// ];
-// const Orders = () => {
-//   const renderItem = ({ item }) => (
-//     <TouchableOpacity style={styles.orderItem}>
-//       <Image source={item.avatar} style={styles.avatar} />
-//       <View style={styles.orderDetails}>
-//         <View style={styles.row}>
-//           <Text style={styles.name}>{item.name}</Text>
-//           <Text style={styles.date}>{item.date}</Text>
-//         </View>
-//         <Text style={styles.message} numberOfLines={1}>
-//           {item.message}
-//         </Text>
-//       </View>
-//     </TouchableOpacity>
-//   );
-
-//   return (
-//     <FlatList
-//       data={orders}
-//       keyExtractor={item => item.id}
-//       renderItem={renderItem}
-//       contentContainerStyle={{ paddingVertical: 8 }}
-//     />
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   orderItem: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     padding: 14,
-//     borderBottomWidth: 1,
-//     borderBottomColor: '#eee',
-//   },
-//   avatar: {
-//     width: 48,
-//     height: 48,
-//     borderRadius: 24,
-//   },
-//   orderDetails: {
-//     flex: 1,
-//     marginLeft: 12,
-//   },
-//   row: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//   },
-//   name: {
-//     fontSize: 15,
-//     fontWeight: '600',
-//   },
-//   date: {
-//     fontSize: 12,
-//     color: '#777',
-//   },
-//   message: {
-//     fontSize: 13,
-//     color: '#555',
-//     marginTop: 2,
-//   },
-// });
-
-// export default Orders;
-
-// ====================================================
-
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -116,61 +8,77 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
-import orderService from '../../services/api/OrderService';
+import orderService from '../../services/api/OrderService'; // ✅ correct import path
 
-const OrderScreen = () => {
+const OrderScreen = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // ✅ Fetch user orders
-  const loadOrders = async () => {
+  // ===== Fetch orders with pagination =====
+  const loadOrders = async (pageNum = 1, append = false) => {
     try {
+      if (loading) return;
       setLoading(true);
-      const response = await orderService.getOrders({ page: 1, limit: 20 });
-      if (response.success) {
-        setOrders(response.data.orders || []);
+
+      const response = await orderService.getOrders({ page: pageNum, limit: 10 });
+
+      if (response.success && response.data) {
+        const fetchedOrders = response.data.orders || [];
+        setTotalPages(response.data.pagination?.pages || 1);
+
+        setOrders(prev =>
+          append ? [...prev, ...fetchedOrders] : fetchedOrders
+        );
       } else {
-        Alert.alert('Error', 'Failed to fetch orders');
+        Alert.alert('Error', response.message || 'Failed to fetch orders');
       }
     } catch (error) {
-      console.error('Error loading orders:', error);
+      console.error('❌ Error loading orders:', error);
       Alert.alert('Error', 'Something went wrong while fetching orders.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // ✅ Get single order details
-  const viewOrderDetails = async orderId => {
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  // ===== View order details =====
+  const viewOrderDetails = async (orderId) => {
     try {
       setLoading(true);
       const response = await orderService.getOrderDetails(orderId);
       if (response.success) {
-        setSelectedOrder(response.data);
         Alert.alert('Order Details', JSON.stringify(response.data, null, 2));
+      } else {
+        Alert.alert('Error', response.message || 'Failed to fetch order details');
       }
     } catch (error) {
       console.error('Error fetching order details:', error);
+      Alert.alert('Error', 'Something went wrong fetching order details.');
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Cancel order
-  const cancelOrder = async orderId => {
+  // ===== Cancel order =====
+  const cancelOrder = (orderId) => {
     Alert.alert('Confirm', 'Are you sure you want to cancel this order?', [
       {
         text: 'Yes',
         onPress: async () => {
           try {
-            const response = await orderService.cancelOrder(
-              orderId,
-              'User cancelled',
-            );
+            const response = await orderService.cancelOrder(orderId, 'User cancelled');
             if (response.success) {
               Alert.alert('Success', 'Order cancelled successfully');
-              loadOrders(); // Refresh
+              loadOrders(1); // Refresh first page
+            } else {
+              Alert.alert('Error', response.message || 'Failed to cancel order');
             }
           } catch (error) {
             Alert.alert('Error', 'Failed to cancel order');
@@ -181,56 +89,80 @@ const OrderScreen = () => {
     ]);
   };
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
+  // ===== Load more pagination =====
+  const loadMore = () => {
+    if (page < totalPages && !loading) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      loadOrders(nextPage, true);
+    }
+  };
 
-  if (loading) {
-    return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#5636B8" />
-        <Text>Loading Orders...</Text>
+  // ===== Pull to refresh =====
+  const onRefresh = () => {
+    setRefreshing(true);
+    setPage(1);
+    loadOrders(1);
+  };
+
+  // ===== Render each order card =====
+  const renderOrder = ({ item }) => (
+    <View style={styles.orderCard}>
+      <Text style={styles.orderText}>Order ID: {item.orderId}</Text>
+      <Text style={styles.orderText}>Astrologer: {item.astrologerName || 'N/A'}</Text>
+      <Text style={styles.orderText}>Type: {item.type || 'N/A'}</Text>
+      <Text style={styles.orderText}>Status: {item.status}</Text>
+      <Text style={styles.orderText}>Amount: ₹{item.totalAmount || 0}</Text>
+
+      <View style={styles.btnRow}>
+        <TouchableOpacity
+          style={styles.detailBtn}
+          onPress={() => viewOrderDetails(item.orderId)}
+        >
+          <Text style={styles.btnText}>View</Text>
+        </TouchableOpacity>
+
+        {item.status !== 'cancelled' && (
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={() => cancelOrder(item.orderId)}
+          >
+            <Text style={styles.btnText}>Cancel</Text>
+          </TouchableOpacity>
+        )}
       </View>
-    );
-  }
+    </View>
+  );
 
   return (
     <View style={styles.container}>
       <Text style={styles.header}>My Orders</Text>
 
-      <FlatList
-        data={orders}
-        keyExtractor={item => item._id?.toString() || Math.random().toString()}
-        renderItem={({ item }) => (
-          <View style={styles.orderCard}>
-            <Text style={styles.orderText}>Order ID: {item._id}</Text>
-            <Text style={styles.orderText}>Type: {item.type}</Text>
-            <Text style={styles.orderText}>Status: {item.status}</Text>
-            <Text style={styles.orderText}>Price: ₹{item.price}</Text>
-
-            <View style={styles.btnRow}>
-              <TouchableOpacity
-                style={styles.detailBtn}
-                onPress={() => viewOrderDetails(item._id)}
-              >
-                <Text style={styles.btnText}>View</Text>
-              </TouchableOpacity>
-
-              {item.status !== 'cancelled' && (
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => cancelOrder(item._id)}
-                >
-                  <Text style={styles.btnText}>Cancel</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        )}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No orders found</Text>
-        }
-      />
+      {loading && page === 1 ? (
+        <View style={styles.loader}>
+          <ActivityIndicator size="large" color="#5636B8" />
+          <Text>Loading Orders...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={orders}
+          keyExtractor={(item, index) => item.orderId || index.toString()}
+          renderItem={renderOrder}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          ListEmptyComponent={
+            !loading && <Text style={styles.emptyText}>No orders found</Text>
+          }
+          ListFooterComponent={
+            loading && page > 1 ? (
+              <ActivityIndicator size="small" color="#5636B8" style={{ marginVertical: 10 }} />
+            ) : null
+          }
+        />
+      )}
     </View>
   );
 };
@@ -275,3 +207,5 @@ const styles = StyleSheet.create({
 });
 
 export default OrderScreen;
+
+

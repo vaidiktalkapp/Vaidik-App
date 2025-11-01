@@ -76,12 +76,12 @@ const CustomDrawerContent = ({ navigation }) => {
           />
           <View style={styles.textContainer}>
             <Text style={styles.name}>
-              {isAuthenticated && user && user.name ? user.name : guestName }
-               <Image
-              source={require('../assets/pen.png')}
-              resizeMode="contain"
-              style={styles.penIcon}
-            />
+              {isAuthenticated && user && user.name ? user.name : guestName}
+              <Image
+                source={require('../assets/pen.png')}
+                resizeMode="contain"
+                style={styles.penIcon}
+              />
             </Text>
             <Text style={styles.number}>
               {isAuthenticated && user && user.phoneNumber
@@ -93,7 +93,6 @@ const CustomDrawerContent = ({ navigation }) => {
 
         {/* Buttons Section */}
         <View style={styles.buttonSection}>
-
           <TouchableOpacity style={styles.crossButton} onPress={handleCancel}>
             <Image
               source={require('../assets/cancel.png')}
@@ -138,10 +137,7 @@ const CustomDrawerContent = ({ navigation }) => {
           <Text style={styles.label}>Customer Support Chat</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-        style={styles.sidebarItem}
-        onPress={handleWallet}
-        >
+        <TouchableOpacity style={styles.sidebarItem} onPress={handleWallet}>
           <Image
             source={require('../assets/wallet.png')}
             resizeMode="contain"
@@ -286,6 +282,10 @@ const CustomDrawerContent = ({ navigation }) => {
         </TouchableOpacity>
       </View>
       <View style={styles.VersionCantainer}>
+        <Image
+          source={require('../assets/onlyLogoVaidik.png')}
+          style={styles.VersionLogoIcon}
+        />
         <Text style={styles.versionText}>Version 10.1.03</Text>
       </View>
     </View>
@@ -354,6 +354,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   VersionCantainer: {
+    flexDirection: 'row',
     alignContent: 'center',
     alignItems: 'center',
     marginVertical: -25,
@@ -362,6 +363,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '300',
     color: 'green',
+    left: 70,
+    top: 35,
+  },
+  VersionLogoIcon: {
+    width: 45,
+    height: 45,
+    marginRight: 8,
+    fontWeight: '600',
+    left: 60,
+    top: 35,
   },
   penIcon: {
     width: 14,
