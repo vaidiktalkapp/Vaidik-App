@@ -1,0 +1,187 @@
+{
+  "bannerData": [
+    {
+      "id": "1",
+      "text": "Rudraksha Consultation now at ₹99/- only!",
+      "image": "https://images.unsplash.com/photo-1603791440384-56cd371ee9a7"
+    },
+    {
+      "id": "2",
+      "text": "Special Horoscope Reading at ₹199/-",
+      "image": "https://images.unsplash.com/photo-1543269865-cbf427effbad"
+    },
+    {
+      "id": "3",
+      "text": "Navratri Puja Bookings Open!",
+      "image": "https://images.unsplash.com/photo-1519682337058-a94d519337bc"
+    }
+  ],
+
+  "categoriesData": [
+    {
+      "id": "1",
+      "title": "Bracelets",
+      "img": "https://vaidiktalk.store/cdn/shop/files/lapis-luzli-bracelet.jpg?v=1757417067&width=533",
+      "link": "https://vaidiktalk.store/collections/bracelets"
+    },
+    {
+      "id": "2",
+      "title": "Mala",
+      "img": "https://vaidiktalk.store/cdn/shop/t/10/assets/icon-mala1.png?v=56723093281436218981756180705",
+      "link": "https://vaidiktalk.store/collections/bracelets"
+    },
+    {
+      "id": "3",
+      "title": "Rudraksha",
+      "img": "https://vaidiktalk.store/cdn/shop/t/10/assets/icon-rudraksha1.png?v=77797559753222361811756180716",
+      "link": "https://vaidiktalk.store/collections/rudraksha"
+    },
+    {
+      "id": "4",
+      "title": "Siddh Yantra",
+      "img": "https://vaidiktalk.store/cdn/shop/t/10/assets/icon-yantra1.png?v=44540957930591982401756180725",
+      "link": "https://vaidiktalk.store/collections/rudraksha"
+    },
+    {
+      "id": "5",
+      "title": "Pendants",
+      "img": "https://vaidiktalk.store/cdn/shop/t/10/assets/icon-pendant1.png?v=70931818583912544951756180710",
+      "link": "https://vaidiktalk.store/collections/pendants"
+    },
+    {
+      "id": "6",
+      "title": "Crystals Tree and more",
+      "img": "https://vaidiktalk.store/cdn/shop/t/10/assets/icon-crystaltree4.png?v=154889224920116797301756277949",
+      "link": "https://vaidiktalk.store/collections/gemstone"
+    },
+    {
+      "id": "7",
+      "title": "Gemstone",
+      "img": "https://vaidiktalk.store/cdn/shop/t/10/assets/icon-gemstones1.png?v=120517581350914370841756180698",
+      "link": "https://vaidiktalk.store/collections/gemstone"
+    },
+    {
+      "id": "8",
+      "title": "Parad Murti",
+      "img": "https://vaidiktalk.store/cdn/shop/t/10/assets/icon-parad1.png?v=49114010829088958711756180709",
+      "link": "https://vaidiktalk.store/collections/parad"
+    }
+  ],
+
+  "kundaliData": [
+    {
+      "id": "1",
+      "title": "Hastlikhit Kundali",
+      "sub": "STARTS AT INR 1100",
+      "img": "https://vaidiktalk.com/images/book-a-pooja/HasthlikhitKundali1.png",
+      "link": "https://vaidiktalk.com/report/kundali/hastlikhit-kundali"
+    },
+    {
+      "id": "2",
+      "title": "Vaidik Smart Kundali",
+      "img": "https://vaidiktalk.com/images/book-a-pooja/vaidik-smart-kundali.png",
+      "link": "https://vaidiktalk.com/report/kundali/vaidik-smart-kundali-10-years"
+    },
+    {
+      "id": "3",
+      "title": "Kundali Matching",
+      "sub": "BLESSINGS FOR YOU",
+      "img": "https://vaidiktalk.com/images/book-a-pooja/kundali3.png",
+      "link": "https://vaidiktalk.com/report/kundali/kundali-matching"
+    },
+    {
+      "id": "4",
+      "title": "Personalize Lal kit",
+      "sub": "STARTS AT INR 1100",
+      "img": "https://vaidiktalk.com/images/book-a-pooja/kundali4.png",
+      "link": "https://vaidiktalk.com/report/kundali/personalized-lal-kitab"
+    }
+  ],
+
+  "numerology": [
+    {
+      "id": "1",
+      "title": "Fortune Numerology",
+      "img": "https://vaidiktalk.com/images/book-a-pooja/kundali-form2.png",
+      "link": "https://vaidiktalk.com/report/numerology/fortune-numerology"
+    },
+    {
+      "id": "2",
+      "title": "Name & Mobile Number (Report and Rectification) Numerology",
+      "img": "https://vaidiktalk.com/images/book-a-pooja/mobile-no-numerology-up.jpg",
+      "link": "https://vaidiktalk.com/report/numerology/name-mobile-number-numerology"
+    }
+  ],
+
+  "vastu": [
+    {
+      "id": "1",
+      "title": "Vastu for Home / New Home",
+      "img": "https://vaidiktalk.com/images/book-a-pooja/vastu-for-home-up.jpg",
+      "link": "https://vaidiktalk.com/report/vastu/home-new-home-vastu"
+    },
+    {
+      "id": "2",
+      "title": "Vastu for Office / factory",
+      "img": "https://vaidiktalk.com/images/book-a-pooja/office-vastu-up.avif",
+      "link": "https://vaidiktalk.com/report/vastu/office-factory-vastu"
+    },
+    {
+      "id": "3",
+      "title": "Vastu for Kitchen, Pooja Room, Washroom",
+      "img": "https://vaidiktalk.com/images/book-a-pooja/kitchen-vastu-up.avif",
+      "link": "https://vaidiktalk.com/report/vastu/kitchen-puja-room-washroom-vastu"
+    }
+  ],
+
+  "others": [
+    {
+      "id": "1",
+      "title": "Gemstone Report",
+      "img": "https://vaidiktalk.com/images/book-a-pooja/gemstones-report.png",
+      "link": "https://vaidiktalk.com/report/detailed/gemstone"
+    },
+    {
+      "id": "2",
+      "title": "Rahu-Ketu Doash Report",
+      "img": "https://vaidiktalk.com/images/services/rahu-ketu-dosh-down.jpg",
+      "link": "https://vaidiktalk.com/report/detailed/rahu-ketu-dosh"
+    },
+    {
+      "id": "3",
+      "title": "Kaal Sarp Doash Report",
+      "img": "https://vaidiktalk.com/images/services/kaal-sarp-dosh-up.jpg",
+      "link": "https://vaidiktalk.com/report/detailed/kaal-sarp-dosh"
+    },
+    {
+      "id": "4",
+      "title": "Pitru Doash Report",
+      "img": "https://vaidiktalk.com/images/services/pitru-dosh-up.jpg",
+      "link": "https://vaidiktalk.com/report/detailed/pitru-dosh"
+    },
+    {
+      "id": "5",
+      "title": "Sade Sati & Dhaiya Report",
+      "img": "https://vaidiktalk.com/images/services/sade-sati-and-dhaiya-up.avif",
+      "link": "https://vaidiktalk.com/report/detailed/sade-sati-dhaiya"
+    },
+    {
+      "id": "6",
+      "title": "Mangal Doash Report",
+      "img": "https://vaidiktalk.com/images/services/mangal-dosh-up.jpg",
+      "link": "https://vaidiktalk.com/report/detailed/mangal-dosh"
+    },
+    {
+      "id": "7",
+      "title": "Live Report",
+      "img": "https://vaidiktalk.com/images/services/love-report-up.jpg",
+      "link": "https://vaidiktalk.com/report/detailed/love-report"
+    },
+    {
+      "id": "8",
+      "title": "Career / job Report",
+      "img": "https://vaidiktalk.com/images/services/careerjob-report1.png",
+      "link": "https://vaidiktalk.com/report/detailed/career-job-report"
+    }
+  ]
+}

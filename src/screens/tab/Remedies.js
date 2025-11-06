@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   View,
   Text,
@@ -7,138 +8,45 @@ import {
   Dimensions,
   FlatList,
 } from 'react-native';
-import React from 'react';
-import { Linking } from 'react-native';
 import HeaderIcons from '../../component/HeaderIcons';
 import Carousel from 'react-native-reanimated-carousel';
+import RemediesStyle from '../../style/RemediesStyle';
+import RemediesData from '../../Data/RemediesData.json';
 
+const styles = RemediesStyle;
 const { width } = Dimensions.get('window');
 
-// ================= Banner Data =================
-const bannerData = [
-  {
-    id: '1',
-    text: 'Rudraksha Consultation now at ₹99/- only!',
-    image: 'https://images.unsplash.com/photo-1603791440384-56cd371ee9a7',
-  },
-  {
-    id: '2',
-    text: 'Special Horoscope Reading at ₹199/-',
-    image: 'https://images.unsplash.com/photo-1543269865-cbf427effbad',
-  },
-  {
-    id: '3',
-    text: 'Navratri Puja Bookings Open!',
-    image: 'https://images.unsplash.com/photo-1519682337058-a94d519337bc',
-  },
-];
-
-// ================= Categories =================
-const CategoriesData = [
-  { id: '1', title: 'Bracelets', img: require('../../assets/rudraksha.png') },
-  {
-    id: '2',
-    title: 'Rudraksha',
-    img: 'https://img.icons8.com/color/96/acorn.png',
-  },
-  {
-    id: '3',
-    title: 'Pendants',
-    img: 'https://img.icons8.com/ios-filled/100/necklace.png',
-  },
-  {
-    id: '4',
-    title: 'Gemstone',
-    img: 'https://img.icons8.com/color/96/diamond.png',
-  },
-  {
-    id: '5',
-    title: 'Vatras Murti',
-    img: 'https://img.icons8.com/color/96/statue.png',
-  },
-  {
-    id: '6',
-    title: 'Zodiac Collection',
-    img: 'https://img.icons8.com/color/96/zodiac.png',
-  },
-  {
-    id: '7',
-    title: 'Divine Frames',
-    img: 'https://img.icons8.com/color/96/picture.png',
-  },
-  {
-    id: '8',
-    title: 'Karungali Wear',
-    img: 'https://img.icons8.com/color/96/t-shirt.png',
-  },
-  {
-    id: '9',
-    title: 'Evil Eye',
-    img: 'https://img.icons8.com/color/96/evil-eye.png',
-  },
-];
-
-// ================= Products =================
-const productData = [
-  {
-    id: '1',
-    title: 'VIP E-Pooja',
-    sub: 'STARTS AT INR 1100',
-    // img: require('../../assets/rudra.png'),
-  },
-  {
-    id: '9',
-    title: 'Bracelets',
-    img: require('../../assets/goddess-durga.png'),
-  },
-  {
-    id: '2',
-    title: 'Navratri Special',
-    sub: 'BLESSINGS FOR YOU',
-    img: 'https://img.icons8.com/color/96/goddess-durga.png',
-  },
-  {
-    id: '3',
-    title: 'Spell',
-    sub: 'STARTS AT INR 1100',
-    img: 'https://img.icons8.com/color/96/magic-book.png',
-  },
-  {
-    id: '4',
-    title: 'Gemstone',
-    sub: 'EMI AVAILABLE !!!',
-    img: 'https://img.icons8.com/color/96/diamond.png',
-  },
-  {
-    id: '5',
-    title: 'VIP E-Pooja',
-    sub: 'STARTS AT INR 1100',
-    img: 'https://img.icons8.com/color/96/fire-element.png',
-  },
-  {
-    id: '6',
-    title: 'Navratri Special',
-    sub: 'BLESSINGS FOR YOU',
-    img: 'https://img.icons8.com/ios-filled/100/necklace.png',
-  },
-  {
-    id: '7',
-    title: 'Spell',
-    sub: 'STARTS AT INR 1100',
-    img: 'https://img.icons8.com/color/96/magic-book.png',
-  },
-  {
-    id: '8',
-    title: 'Gemstone',
-    sub: 'EMI AVAILABLE !!!',
-    img: 'https://img.icons8.com/color/96/diamond.png',
-  },
-];
+// Destructure data from JSON
+const { bannerData, categoriesData, kundaliData, numerology, vastu, others } = RemediesData;
 
 const Remedies = ({ navigation }) => {
+
+  // ✅ Navigate to WebView screen instead of opening browser
+  const openLink = (title, link) => {
+    if (link) {
+      navigation.navigate('WebViewScreen', { title, url: link });
+    }
+  };
+
+  const renderCard = ({ item }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => openLink(item.title, item.link)}
+    >
+      <Image
+        source={typeof item.img === 'string' ? { uri: item.img } : item.img}
+        style={styles.cardImage}
+      />
+
+      <View style={styles.cardBottom}>
+        <Text style={styles.sectioTitle}>{item.title}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
-      {/* ===== Fixed Header ===== */}
+      {/* ===== Header ===== */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <HeaderIcons />
@@ -146,7 +54,10 @@ const Remedies = ({ navigation }) => {
         </View>
 
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerBtn}>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => navigation.navigate('OrderHistory')}
+          >
             <Image
               source={require('../../assets/order.png')}
               style={styles.icon}
@@ -168,14 +79,10 @@ const Remedies = ({ navigation }) => {
 
       {/* ===== Scrollable Content ===== */}
       <FlatList
-        data={productData}
-        keyExtractor={item => item.id}
-        numColumns={2}
-        columnWrapperStyle={{ justifyContent: 'space-between' }}
-        contentContainerStyle={{ padding: 10 }}
+        data={[]} // Empty main list
         ListHeaderComponent={
           <>
-            {/* Banner */}
+            {/* ===== Banner ===== */}
             <Carousel
               loop
               width={width}
@@ -185,13 +92,13 @@ const Remedies = ({ navigation }) => {
               scrollAnimationDuration={1500}
               renderItem={({ item }) => (
                 <View style={styles.bannerCard}>
-                  <Image
-                    source={{ uri: item.image }}
-                    style={styles.bannerImage}
-                  />
+                  <Image source={{ uri: item.image }} style={styles.bannerImage} />
                   <View style={styles.bannerOverlay}>
                     <Text style={styles.bannerText}>{item.text}</Text>
-                    <TouchableOpacity style={styles.bannerBtn}>
+                    <TouchableOpacity
+                      style={styles.bannerBtn}
+                      onPress={() => openLink(item.text, item.image)}
+                    >
                       <Text style={styles.bannerBtnText}>Check Now</Text>
                     </TouchableOpacity>
                   </View>
@@ -199,24 +106,27 @@ const Remedies = ({ navigation }) => {
               )}
             />
 
-            {/* Categories */}
+            {/* ===== Categories ===== */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Astrotalk Store</Text>
               <TouchableOpacity
-                onPress={() => Linking.openURL('https://vaidiktalk.store/')}
+                onPress={() => openLink('Astrotalk Store', 'https://vaidiktalk.store/')}
               >
                 <Text style={styles.visitStore}>Visit Store</Text>
               </TouchableOpacity>
             </View>
 
             <FlatList
-              data={CategoriesData}
-              keyExtractor={item => item.id}
+              data={categoriesData}
+              keyExtractor={(item) => item.id}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 10 }}
               renderItem={({ item }) => (
-                <TouchableOpacity style={styles.categoryCard}>
+                <TouchableOpacity
+                  style={styles.categoryCard}
+                  onPress={() => openLink(item.title, item.link)}
+                >
                   <Image
                     source={
                       typeof item.img === 'string'
@@ -225,33 +135,65 @@ const Remedies = ({ navigation }) => {
                     }
                     style={styles.categoryImage}
                   />
-                  <Text style={styles.categoryText}>{item.title}</Text>
+                  <Text style={styles.categoryTitle}>{item.title}</Text>
                 </TouchableOpacity>
               )}
             />
+
+            {/* ======= Sections ======= */}
+            <View style={{ marginTop: 15 }}>
+              <Text style={styles.sectionTitleKudali}>Kundali</Text>
+              <FlatList
+                data={kundaliData}
+                keyExtractor={(item) => item.id}
+                numColumns={2}
+                scrollEnabled={false}
+                columnWrapperStyle={{ justifyContent: 'space-between' }}
+                contentContainerStyle={{ paddingHorizontal: 10 }}
+                renderItem={renderCard}
+              />
+            </View>
+
+            <View style={{ marginTop: 15 }}>
+              <Text style={styles.sectionTitleKudali}>Numerology</Text>
+              <FlatList
+                data={numerology}
+                keyExtractor={(item) => item.id + item.title}
+                numColumns={2}
+                scrollEnabled={false}
+                columnWrapperStyle={{ justifyContent: 'space-between' }}
+                contentContainerStyle={{ paddingHorizontal: 10 }}
+                renderItem={renderCard}
+              />
+            </View>
+
+            <View style={{ marginTop: 15 }}>
+              <Text style={styles.sectionTitleKudali}>Vastu</Text>
+              <FlatList
+                data={vastu}
+                keyExtractor={(item) => item.id}
+                numColumns={2}
+                scrollEnabled={false}
+                columnWrapperStyle={{ justifyContent: 'space-between' }}
+                contentContainerStyle={{ paddingHorizontal: 10 }}
+                renderItem={renderCard}
+              />
+            </View>
+
+            <View style={{ marginTop: 15, marginBottom: 40 }}>
+              <Text style={styles.sectionTitleKudali}>Others Remedies</Text>
+              <FlatList
+                data={others}
+                keyExtractor={(item) => item.id}
+                numColumns={2}
+                scrollEnabled={false}
+                columnWrapperStyle={{ justifyContent: 'space-between' }}
+                contentContainerStyle={{ paddingHorizontal: 10 }}
+                renderItem={renderCard}
+              />
+            </View>
           </>
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation?.navigate('ProductDetails', { item })}
-          >
-            <Image
-              source={
-                typeof item.img === 'string' ? { uri: item.img } : item.img
-              }
-              style={styles.cardImage}
-            />
-            {item.sub && (
-              <View style={styles.ribbon}>
-                <Text style={styles.ribbonText}>{item.sub}</Text>
-              </View>
-            )}
-            <View style={styles.cardBottom}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
       />
     </View>
   );
@@ -259,121 +201,3 @@ const Remedies = ({ navigation }) => {
 
 export default Remedies;
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'rgb(245, 245, 245)' },
-
-  // ===== Header =====
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', right: 15 },
-  title: { fontSize: 18, fontWeight: 'bold', marginLeft: 8 },
-  headerRight: { flexDirection: 'row', alignItems: 'center' },
-  headerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 25,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginLeft: 10,
-    backgroundColor: '#fff',
-  },
-  headerIconOnly: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 25,
-    padding: 8,
-    marginLeft: 10,
-    backgroundColor: '#fff',
-  },
-  orders: { fontSize: 14, color: '#444', marginLeft: 6, fontWeight: '500' },
-  icon: { width: 20, height: 20, resizeMode: 'contain' },
-
-  // ===== Banner =====
-  bannerCard: {
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginVertical: 8,
-    marginHorizontal: 10,
-  },
-  bannerImage: { width: '100%', height: 180 },
-  bannerOverlay: { position: 'absolute', top: 20, left: 15 },
-  bannerText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  bannerBtn: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  bannerBtnText: { fontWeight: 'bold' },
-
-  // ===== Categories =====
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    marginTop: 15,
-    alignItems: 'center',
-  },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold' },
-  visitStore: { fontSize: 14, color: '#FF9800' },
-
-  categoryCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 10,
-    alignItems: 'center',
-    marginRight: 15,
-    width: 100,
-    elevation: 2,
-  },
-  categoryImage: {
-    width: 50,
-    height: 50,
-    marginBottom: 6,
-    resizeMode: 'contain',
-  },
-  categoryText: { fontSize: 13, fontWeight: '500', textAlign: 'center' },
-
-  // ===== Products =====
-  card: {
-    width: '48%',
-    height: 160,
-    borderRadius: 12,
-    marginBottom: 12,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-    position: 'relative',
-    top: 20,
-  },
-  cardImage: { width: '100%', height: '100%', position: 'absolute' },
-  ribbon: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    backgroundColor: 'rgba(220,0,0,0.8)',
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-  },
-  ribbonText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  cardBottom: { position: 'absolute', bottom: 10, left: 10 },
-  cardTitle: { fontSize: 14, fontWeight: 'bold', color: '#fff' },
-});

@@ -9,20 +9,22 @@ const RemediesStyle = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 15,
     backgroundColor: '#fff',
+    paddingTop: 20,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', right: 15 },
-  title: { fontSize: 18, fontWeight: 'bold', marginLeft: 8 },
+  title: { fontSize: 18, fontWeight: '300', marginLeft: 10 },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
   headerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    // borderColor: '#ddd',
+    borderColor: '#ddd',
     borderRadius: 25,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    marginLeft: 10,
+    left: -5,
     backgroundColor: '#fff',
+    paddingTop: 10,
   },
   headerIconOnly: {
     borderWidth: 1,
@@ -66,9 +68,10 @@ const RemediesStyle = StyleSheet.create({
     marginTop: 15,
     alignItems: 'center',
   },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold' },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', left: 1 },
   visitStore: { fontSize: 14, color: '#FF9800' },
 
+  sectionTitleKudali: { fontSize: 20, fontWeight: 'bold', left: 15 },
   categoryCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -88,8 +91,9 @@ const RemediesStyle = StyleSheet.create({
 
   // ===== Products =====
   card: {
-    width: '48%',
-    height: 160,
+    width: '47%',
+    height: 180,
+    borderWidth: 1,
     borderRadius: 12,
     marginBottom: 12,
     overflow: 'hidden',
@@ -115,6 +119,19 @@ const RemediesStyle = StyleSheet.create({
   },
   cardBottom: { position: 'absolute', bottom: 10, left: 10 },
   cardTitle: { fontSize: 14, fontWeight: 'bold', color: '#fff' },
+  sectioTitle: {
+    top: 90,
+    alignContent: 'center',
+    alignItems: 'center',
+    left: 15,
+    color: 'gold',
+  },
+  categoryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    top: 10,
+  },
 });
 
 export default RemediesStyle;

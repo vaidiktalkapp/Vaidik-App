@@ -4,9 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { API_BASE_URL } from '@env';
 
 // API Base URL
-const API_BASE_URL = 'http://192.168.1.20:3001/api/v1';
-// const API_BASE_URL = 'http://192.168.1.16:3001/api/v1';
-// const API_BASE_URL = 'https://vaidik-server.onrender.com/api/v1'
+// const API_BASE_URL = 'http://192.168.1.19:3001/api/v1';
+// const API_BASE_URL = 'http://192.168.1.10:3001/api/v1';
+const API_BASE_URL = 'https://vaidik-server.onrender.com/api/v1'
 
 console.log('🌍 API Base URL:', API_BASE_URL);
 
@@ -26,7 +26,7 @@ export const apiClient = axios.create({
 // ============================================
 
 apiClient.interceptors.request.use(
-  async (config) => {
+  async config => {
     try {
       const token = await AsyncStorage.getItem('accessToken');
 
@@ -45,10 +45,10 @@ apiClient.interceptors.request.use(
 
     return config;
   },
-  (error) => {
+  error => {
     console.error('❌ Request interceptor error:', error);
     return Promise.reject(error);
-  }
+  },
 );
 
 // ============================================
@@ -71,11 +71,11 @@ const processQueue = (error, token = null) => {
 };
 
 apiClient.interceptors.response.use(
-  (response) => {
+  response => {
     console.log('✅ API Response:', response.config.url, response.status);
     return response;
   },
-  async (error) => {
+  async error => {
     const originalRequest = error.config;
 
     console.error('❌ API Error:', {
@@ -112,7 +112,10 @@ apiClient.interceptors.response.use(
         }
 
         console.log('🔄 Attempting to refresh access token...');
-        console.log('🔄 Refresh token preview:', refreshToken.substring(0, 30) + '...');
+        console.log(
+          '🔄 Refresh token preview:',
+          refreshToken.substring(0, 30) + '...',
+        );
 
         // ✅ FIXED: Call refresh endpoint with correct structure
         const { data } = await axios.post(
@@ -122,13 +125,13 @@ apiClient.interceptors.response.use(
             headers: {
               'Content-Type': 'application/json',
             },
-          }
+          },
         );
 
         console.log('📥 Refresh response:', data);
-console.log('📥 Refresh response.data:', data.data); // ← ADD THIS
-console.log('📥 Has accessToken:', !!data.data?.accessToken); // ← ADD THIS
-console.log('📥 Has refreshToken:', !!data.data?.refreshToken); // ← ADD THIS
+        console.log('📥 Refresh response.data:', data.data); // ← ADD THIS
+        console.log('📥 Has accessToken:', !!data.data?.accessToken); // ← ADD THIS
+        console.log('📥 Has refreshToken:', !!data.data?.refreshToken); // ← ADD THIS
 
         if (data.success) {
           // ✅ FIXED: Extract tokens with correct field names
@@ -147,10 +150,15 @@ console.log('📥 Has refreshToken:', !!data.data?.refreshToken); // ← ADD THI
           ]);
 
           console.log('✅ Tokens refreshed successfully');
-          console.log('✅ New access token:', newAccessToken.substring(0, 30) + '...');
+          console.log(
+            '✅ New access token:',
+            newAccessToken.substring(0, 30) + '...',
+          );
 
           // Update headers
-          apiClient.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+          apiClient.defaults.headers.common[
+            'Authorization'
+          ] = `Bearer ${newAccessToken}`;
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 
           // Process queued requests
@@ -179,12 +187,14 @@ console.log('📥 Has refreshToken:', !!data.data?.refreshToken); // ← ADD THI
         console.log('🔴 Force logout - Tokens cleared');
 
         // Reject with specific error
-        return Promise.reject(new Error('Session expired. Please login again.'));
+        return Promise.reject(
+          new Error('Session expired. Please login again.'),
+        );
       }
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default apiClient;
