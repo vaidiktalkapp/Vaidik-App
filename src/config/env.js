@@ -5,5 +5,5 @@
 
 
 export default {
-  SOCKET_URL: 'http://192.168.1.10:3001/api/v1', // Replace with your backend IP & port
+  SOCKET_URL: 'http://192.168.1.18:3001/api/v1', // Replace with your backend IP & port
 };

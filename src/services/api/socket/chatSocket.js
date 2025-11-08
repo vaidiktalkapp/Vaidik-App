@@ -1,198 +1,228 @@
+// // src/services/api/socket/chatSocket.js (USER SIDE)
 // import { io } from 'socket.io-client';
-// import AsyncStorage from '@react-native-async-storage/async-storage';
-// import Config from '../../../config/env';
+// import apiClient from '../config';
 
-// let socket = null;
+// class ChatSocket {
+//   constructor() {
+//     this.socket = null;
+//     this.userId = null;
+//   }
 
-// /**
-//  * Initialize and connect the chat socket.
-//  */
-// export const initChatSocket = async () => {
-//   if (socket && socket.connected) return socket;
-
-//   try {
-//     const token = await AsyncStorage.getItem('accessToken');
-//     if (!token) {
-//       console.warn('⚠️ No access token found in storage');
+//   connect(userId) {
+//     if (this.socket?.connected) {
+//       console.log('⚠️ Socket already connected');
+//       return;
 //     }
 
-//     socket = io(`${Config.SOCKET_URL}/chat`, {
+//     this.userId = userId;
+
+//     const socketUrl = apiClient.defaults.baseURL.replace('/api/v1', '');
+//     console.log('🔗 [USER] Connecting to socket server:', socketUrl);
+
+//     this.socket = io(socketUrl, {
 //       transports: ['websocket'],
-//       auth: { token },
+//       autoConnect: false,
 //       reconnection: true,
 //       reconnectionAttempts: 5,
-//       reconnectionDelay: 2000,
-//       autoConnect: true,
-//       forceNew: true,
+//       reconnectionDelay: 1000,
+//       query: { userId, role: 'user' }, // ✅ Role add kiya
 //     });
 
-//     // ✅ Connection events
-//     socket.on('connect', () => {
-//       console.log('✅ Connected to chat socket:', socket.id);
+//     this.setupEventListeners();
+//     this.socket.connect();
+//   }
+
+//   setupEventListeners() {
+//     if (!this.socket) return;
+
+//     this.socket.on('connect', () => {
+//       console.log('🟢 [USER] Socket connected successfully');
+//       console.log('🆔 [USER] Socket ID:', this.socket.id);
+      
+//       if (this.userId) {
+//         this.socket.emit('join_room', this.userId);
+//         console.log('📍 [USER] Joined room for user:', this.userId);
+//       }
 //     });
 
-//     socket.on('disconnect', reason => {
-//       console.log('⚠️ Chat socket disconnected:', reason);
+//     this.socket.on('connect_error', (error) => {
+//       console.error('🔴 [USER] Socket connection error:', error.message);
 //     });
 
-//     socket.on('connect_error', err => {
-//       console.log('❌ Chat socket connection error:', err.message);
+//     this.socket.on('disconnect', (reason) => {
+//       console.log('🟠 [USER] Socket disconnected:', reason);
+      
+//       if (reason === 'io server disconnect') {
+//         console.log('🔄 [USER] Reconnecting...');
+//         this.socket.connect();
+//       }
 //     });
 
-//     return socket;
-//   } catch (error) {
-//     console.error('🔥 Socket initialization failed:', error.message);
-//     return null;
+//     this.socket.on('reconnect', (attemptNumber) => {
+//       console.log('🔄 [USER] Socket reconnected after', attemptNumber, 'attempts');
+//     });
 //   }
-// };
 
-// /**
-//  * Join chat session room.
-//  */
-// export const joinChatSession = sessionId => {
-//   if (!socket || !socket.connected) {
-//     console.warn('⚠️ Cannot join session — socket not connected');
-//     return;
+//   disconnect() {
+//     if (this.socket) {
+//       console.log('🔌 [USER] Disconnecting socket...');
+//       this.socket.disconnect();
+//       this.socket.removeAllListeners();
+//       this.socket = null;
+//       this.userId = null;
+//     }
 //   }
-//   socket.emit('joinSession', { sessionId });
-//   console.log('📥 Joined chat session:', sessionId);
-// };
 
-// /**
-//  * Leave chat session room.
-//  */
-// export const leaveChatSession = sessionId => {
-//   if (!socket || !socket.connected) return;
-//   socket.emit('leaveSession', { sessionId });
-//   console.log('📤 Left chat session:', sessionId);
-// };
-
-// /**
-//  * Send chat message.
-//  */
-// export const sendMessageSocket = (sessionId, content) => {
-//   if (!socket || !socket.connected) {
-//     console.warn('⚠️ Socket not connected, message not sent');
-//     return;
+//   on(event, callback) {
+//     if (!this.socket) {
+//       console.warn('⚠️ [USER] Socket not initialized');
+//       return;
+//     }
+//     this.socket.on(event, callback);
 //   }
-//   socket.emit('sendMessage', { sessionId, content });
-//   console.log('💬 Message sent:', content);
-// };
 
-// /**
-//  * Listen for incoming messages.
-//  */
-// export const onNewMessage = callback => {
-//   if (!socket) return;
-//   socket.off('newMessage'); // prevent duplicate listeners
-//   socket.on('newMessage', msg => {
-//     console.log('📨 Message received:', msg);
-//     callback(msg);
-//   });
-// };
-
-// /**
-//  * Typing indicator listeners.
-//  */
-// export const onTyping = callback => {
-//   if (!socket) return;
-//   socket.off('typing');
-//   socket.on('typing', callback);
-// };
-
-// export const emitTyping = (sessionId, isTyping) => {
-//   if (!socket || !socket.connected) return;
-//   socket.emit('typing', { sessionId, isTyping });
-// };
-
-// /**
-//  * Mark messages as read.
-//  */
-// export const markMessagesRead = sessionId => {
-//   if (!socket || !socket.connected) return;
-//   socket.emit('markRead', { sessionId });
-// };
-
-// /**
-//  * Disconnect socket manually.
-//  */
-// export const disconnectChatSocket = () => {
-//   if (socket) {
-//     socket.disconnect();
-//     console.log('🔌 Chat socket disconnected');
-//     socket = null;
+//   off(event, callback) {
+//     if (!this.socket) return;
+//     if (callback) {
+//       this.socket.off(event, callback);
+//     } else {
+//       this.socket.off(event);
+//     }
 //   }
-// };
+
+//   emit(event, data, callback) {
+//     if (!this.socket?.connected) {
+//       console.warn('⚠️ [USER] Socket not connected. Cannot emit:', event);
+//       return;
+//     }
+//     console.log('📤 [USER] Emitting event:', event, data);
+//     this.socket.emit(event, data, callback);
+//   }
+
+//   isConnected() {
+//     return this.socket?.connected || false;
+//   }
+
+//   getSocketId() {
+//     return this.socket?.id || null;
+//   }
+// }
+
+// const chatSocketInstance = new ChatSocket();
+// export default chatSocketInstance;
 
 
-// socket.on('connect', () => console.log('✅ Connected:', socket.id));
-// socket.on('disconnect', () => console.log('❌ Disconnected'));
 
-// /**
-//  * Get current socket instance.
-//  */
-// export const getSocketInstance = () => socket;
-
-
-
-// src/service/api/socket/chatSocket.js
+// src/services/api/socket/chatSocket.js (USER SIDE - FIXED)
 import { io } from 'socket.io-client';
-import apiClient from '../config'; 
+import apiClient from '../config';
 
 class ChatSocket {
   constructor() {
     this.socket = null;
+    this.userId = null;
   }
 
   connect(userId) {
-    if (this.socket) return;
+    if (this.socket?.connected) {
+      console.log('⚠️ Socket already connected');
+      return;
+    }
 
-    // const socketUrl = apiClient.replace('/api/v1', '');
+    this.userId = userId;
 
-    const socketUrl = apiClient.defaults.baseURL.replace('/api/v1', '');
+    // ✅ ADD /chat NAMESPACE
+    const socketUrl = apiClient.defaults.baseURL.replace('/api/v1', '') + '/chat';
+    console.log('🔗 [USER] Connecting to socket server:', socketUrl);
 
     this.socket = io(socketUrl, {
       transports: ['websocket'],
       autoConnect: false,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      query: { userId, role: 'user' },
     });
 
+    this.setupEventListeners();
     this.socket.connect();
-    this.socket.emit('join_room', userId);
+  }
+
+  setupEventListeners() {
+    if (!this.socket) return;
 
     this.socket.on('connect', () => {
-      console.log('🟢 Socket connected:', this.socket.id);
+      console.log('🟢 [USER] Socket connected successfully');
+      console.log('🆔 [USER] Socket ID:', this.socket.id);
+      
+      if (this.userId) {
+        this.socket.emit('join_room', this.userId);
+        console.log('📍 [USER] Joined room for user:', this.userId);
+      }
     });
-    this.socket.on('connect_error', (err) => {
-      console.error('🔴 Socket connection error:', err);
+
+    this.socket.on('connect_error', (error) => {
+      console.error('🔴 [USER] Socket connection error:', error.message);
     });
+
     this.socket.on('disconnect', (reason) => {
-      console.log('🟠 Socket disconnected:', reason);
+      console.log('🟠 [USER] Socket disconnected:', reason);
+      
+      if (reason === 'io server disconnect') {
+        console.log('🔄 [USER] Reconnecting...');
+        this.socket.connect();
+      }
+    });
+
+    this.socket.on('reconnect', (attemptNumber) => {
+      console.log('🔄 [USER] Socket reconnected after', attemptNumber, 'attempts');
     });
   }
 
   disconnect() {
     if (this.socket) {
+      console.log('🔌 [USER] Disconnecting socket...');
       this.socket.disconnect();
+      this.socket.removeAllListeners();
       this.socket = null;
+      this.userId = null;
     }
   }
 
   on(event, callback) {
-    if (!this.socket) return;
+    if (!this.socket) {
+      console.warn('⚠️ [USER] Socket not initialized');
+      return;
+    }
     this.socket.on(event, callback);
   }
 
   off(event, callback) {
     if (!this.socket) return;
-    this.socket.off(event, callback);
+    if (callback) {
+      this.socket.off(event, callback);
+    } else {
+      this.socket.off(event);
+    }
   }
 
   emit(event, data, callback) {
-    if (!this.socket) return;
+    if (!this.socket?.connected) {
+      console.warn('⚠️ [USER] Socket not connected. Cannot emit:', event);
+      return;
+    }
+    console.log('📤 [USER] Emitting event:', event, data);
     this.socket.emit(event, data, callback);
+  }
+
+  isConnected() {
+    return this.socket?.connected || false;
+  }
+
+  getSocketId() {
+    return this.socket?.id || null;
   }
 }
 
 const chatSocketInstance = new ChatSocket();
 export default chatSocketInstance;
-

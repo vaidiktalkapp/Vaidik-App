@@ -9,320 +9,2002 @@
 //   StyleSheet,
 //   KeyboardAvoidingView,
 //   Platform,
-//   Image,
 //   Alert,
 // } from 'react-native';
 // import Icon from 'react-native-vector-icons/MaterialIcons';
-// import ChatService from '../../services/api/chat/ChatService';
-// import {
-//   initChatSocket,
-//   joinChatSession,
-//   leaveChatSession,
-//   sendMessageSocket,
-//   onNewMessage,
-//   disconnectChatSocket,
-// } from '../../services/api/socket/chatSocket';
+// import { ChatService } from '../../services/api/chat/ChatService';
+// import chatSocket from '../../services/api/socket/chatSocket';
 
-// const ChatScreen = ({ navigation, route }) => {
-//   const { sessionId, astrologerId } = route.params || {};
-//   const [messages, setMessages] = useState([
-//     {
-//       _id: 1,
-//       text: 'Welcome to Astrotalk. Consultant will take a minute to analyse your details. You may ask your question in the meanwhile.',
-//       system: true,
-//     },
-//   ]);
+// const USER_ID = '68eba7c81bd75c055cf164ab';
+// const ASTROLOGER_ID = '68f55913fcac5b00b4225a8e';
+
+// const ChatScreen = ({ navigation }) => {
+//   const [messages, setMessages] = useState([]);
 //   const [input, setInput] = useState('');
-//   const [secondsLeft, setSecondsLeft] = useState(600);
-//   const [isConnected, setIsConnected] = useState(false);
-
-//   const timerRef = useRef(null);
+//   const [chatSessionId, setChatSessionId] = useState(null);
+//   const [chatStatus, setChatStatus] = useState('idle');
+//   const [isSocketConnected, setIsSocketConnected] = useState(false);
+//   const [socketId, setSocketId] = useState(null);
 //   const flatListRef = useRef(null);
 
-//   // 🕒 Timer
+//   // 1. Setup socket connection
 //   useEffect(() => {
-//     timerRef.current = setInterval(() => {
-//       setSecondsLeft(prev => (prev > 0 ? prev - 1 : 0));
-//     }, 1000);
-//     return () => clearInterval(timerRef.current);
-//   }, []);
+//     console.log('🔄 Initializing socket connection for user:', USER_ID);
 
-//   const formatTimer = () => {
-//     const min = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
-//     const sec = (secondsLeft % 60).toString().padStart(2, '0');
-//     return `${min}:${sec}`;
-//   };
+//     chatSocket.connect(USER_ID);
 
-//   // 🔌 Initialize socket connection
-//   useEffect(() => {
-//     const setupSocket = async () => {
-//       const socket = await initChatSocket();
-//       if (!socket) {
-//         console.error('❌ Socket not initialized');
-//         return;
+//     // ✅ Listen to connection events
+//     chatSocket.on('connect', () => {
+//       const id = chatSocket.getSocketId();
+//       console.log('✅ Socket connected successfully');
+//       console.log('🆔 Socket ID:', id);
+//       setIsSocketConnected(true);
+//       setSocketId(id);
+//     });
+
+//     chatSocket.on('disconnect', reason => {
+//       console.log('❌ Socket disconnected. Reason:', reason);
+//       setIsSocketConnected(false);
+//       setSocketId(null);
+//     });
+
+//     chatSocket.on('connect_error', error => {
+//       console.error('🔴 Socket connection error:', error.message);
+//       Alert.alert(
+//         'Connection Error',
+//         `Socket failed to connect: ${error.message}`,
+//       );
+//     });
+
+//     // ✅ Listen to chat events
+//     chatSocket.on('chat_accepted', data => {
+//       console.log('✅ Chat accepted by astrologer:', data);
+//       if (data.threadId === chatSessionId) {
+//         setChatStatus('active');
+//         Alert.alert('Chat Accepted', 'Astrologer accepted your chat request.');
 //       }
+//     });
 
-//       setIsConnected(true);
-//       joinChatSession(sessionId);
+//     chatSocket.on('chat_rejected', data => {
+//       console.log('❌ Chat rejected by astrologer:', data);
+//       if (data.threadId === chatSessionId) {
+//         setChatStatus('rejected');
+//         Alert.alert('Chat Rejected', 'Astrologer rejected your chat request.');
+//         setChatSessionId(null);
+//         setMessages([]);
+//       }
+//     });
 
-//       onNewMessage(newMsg => {
-//         console.log('📨 New message:', newMsg);
+//     chatSocket.on('chat_message', msg => {
+//       console.log('📩 Received message:', msg);
+//       if (msg.threadId === chatSessionId) {
 //         setMessages(prev => [
 //           {
-//             _id: newMsg._id || Date.now(),
-//             text: newMsg.content,
-//             user: { _id: newMsg.senderId },
+//             _id: Date.now(),
+//             text: msg.message,
+//             user: { _id: msg.senderId === USER_ID ? 'user' : 'consultant' },
 //           },
 //           ...prev,
 //         ]);
-//       });
-//     };
+//       }
+//     });
 
-//     setupSocket();
+//     // Check initial connection status
+//     const initialStatus = chatSocket.isConnected();
+//     console.log('🔍 Initial socket connection status:', initialStatus);
+//     setIsSocketConnected(initialStatus);
+//     if (initialStatus) {
+//       setSocketId(chatSocket.getSocketId());
+//     }
 
+//     // Cleanup
 //     return () => {
-//       leaveChatSession(sessionId);
-//       disconnectChatSocket();
+//       console.log('🧹 Cleaning up socket listeners');
+//       chatSocket.off('connect');
+//       chatSocket.off('disconnect');
+//       chatSocket.off('connect_error');
+//       chatSocket.off('chat_accepted');
+//       chatSocket.off('chat_rejected');
+//       chatSocket.off('chat_message');
+//       chatSocket.disconnect();
 //     };
-//   }, [sessionId]);
+//   }, [chatSessionId]);
 
-//   // 💾 Load old chat messages
-//   useEffect(() => {
-//     const loadHistory = async () => {
-//       try {
-//         if (!sessionId) return;
-//         const history = await ChatService.getMessagesBySession(sessionId);
-//         const formatted = history.map(msg => ({
-//           _id: msg._id,
-//           text: msg.content,
-//           user: { _id: msg.senderId },
-//         }));
-//         setMessages(prev => [...prev, ...formatted.reverse()]);
-//       } catch (err) {
-//         console.error('❌ Error fetching chat history:', err);
+//   // User side screen me bus ye change karo:
+
+//   const handleStartChat = async () => {
+//     try {
+//       console.log('🚀 [USER] Starting chat with astrologer:', ASTROLOGER_ID);
+//       console.log('🔍 [USER] Socket connected?', isSocketConnected);
+//       console.log('🔍 [USER] Socket ID:', socketId);
+
+//       if (!isSocketConnected) {
+//         Alert.alert('Connection Error', 'Socket not connected. Please wait...');
+//         console.error('❌ [USER] Cannot start chat - socket not connected');
+//         return;
 //       }
-//     };
-//     loadHistory();
-//   }, [sessionId]);
 
-//   // ✉️ Send message
-//   const sendMessage = async () => {
-//     const trimmed = input.trim();
-//     if (!trimmed) return;
+//       setChatStatus('loading');
 
-//     const tempMsg = {
-//       _id: Date.now(),
-//       text: trimmed,
-//       user: { _id: 'user' },
+//       console.log('📞 [USER] Calling ChatService.initiateChat API...');
+//       const sessionRes = await ChatService.initiateChat(ASTROLOGER_ID);
+//       console.log(
+//         '📥 [USER] API Response:',
+//         JSON.stringify(sessionRes, null, 2),
+//       );
+
+//       if (!sessionRes || !sessionRes.success) {
+//         throw new Error(sessionRes?.message || 'Failed to create session');
+//       }
+
+//       const sessionId = sessionRes.data?.sessionId;
+//       if (!sessionId) {
+//         throw new Error('No sessionId in response');
+//       }
+
+//       console.log('✅ [USER] Session created with ID:', sessionId);
+
+//       setChatSessionId(sessionId);
+//       setChatStatus('waiting');
+
+//       const requestData = {
+//         userId: USER_ID,
+//         astrologerId: ASTROLOGER_ID,
+//         threadId: sessionId,
+//       };
+
+//       console.log('📤 [USER] Emitting chat_request with data:', requestData);
+
+//       chatSocket.emit('chat_request', requestData, resp => {
+//         console.log('📥 [USER] chat_request callback:', resp);
+//         if (resp && !resp.success) {
+//           console.error('❌ [USER] Chat request failed:', resp.message);
+//           setChatStatus('idle');
+//           Alert.alert('Chat Failed', resp.message);
+//         } else {
+//           console.log('✅ [USER] Chat request sent successfully');
+//         }
+//       });
+//     } catch (err) {
+//       console.error('❌ [USER] Chat start error:', err.message);
+//       console.error('❌ [USER] Full error:', err);
+//       setChatStatus('idle');
+//       Alert.alert('Chat Error', err.message);
+//     }
+//   };
+
+//   // 3. Send chat message via socket
+//   const sendMessage = () => {
+//     if (!chatSessionId || chatStatus !== 'active') {
+//       Alert.alert('Wait', 'Chat not active yet.');
+//       console.warn('⚠️ Cannot send message - chat status:', chatStatus);
+//       return;
+//     }
+
+//     if (!input.trim()) {
+//       console.warn('⚠️ Empty message - not sending');
+//       return;
+//     }
+
+//     const messageData = {
+//       threadId: chatSessionId,
+//       senderId: USER_ID,
+//       message: input.trim(),
 //     };
-//     setMessages(prev => [tempMsg, ...prev]);
+
+//     console.log('📤 Sending message:', messageData);
+
+//     chatSocket.emit('send_message', messageData);
+
+//     setMessages(prev => [
+//       {
+//         _id: Date.now(),
+//         text: input.trim(),
+//         user: { _id: 'user' },
+//       },
+//       ...prev,
+//     ]);
+
 //     setInput('');
-
-//     try {
-//       if (isConnected) {
-//         sendMessageSocket(sessionId, trimmed);
-//       } else {
-//         console.warn('⚠️ Socket not connected, trying REST fallback');
-//         await ChatService.sendMessage(sessionId, trimmed);
-//       }
-//     } catch (err) {
-//       console.error('❌ Message send failed:', err);
-//     }
 //   };
 
-//   // ❌ End Chat
-//   const endChat = async () => {
-//     clearInterval(timerRef.current);
-//     try {
-//       await ChatService.endChatSession(sessionId);
-//       Alert.alert('Chat Ended', 'Your chat session has ended.');
-//       navigation.goBack();
-//     } catch (err) {
-//       console.error('❌ Error ending chat:', err);
-//     }
-//   };
-
-//   // 💬 Render message bubble
+//   // 4. Render UI messages
 //   const renderMessage = ({ item }) => {
-//     if (item.system) {
-//       return (
-//         <View style={styles.systemBubble}>
-//           <Text style={styles.systemText}>{item.text}</Text>
-//         </View>
-//       );
-//     }
-//     if (item.user?._id === 'user') {
-//       return (
-//         <View style={styles.userBubble}>
-//           <Text style={styles.userText}>{item.text}</Text>
-//         </View>
-//       );
-//     }
+//     const isUser = item.user?._id === 'user';
 //     return (
-//       <View style={styles.consultantBubble}>
-//         <Text style={styles.consultantText}>{item.text}</Text>
+//       <View
+//         style={[
+//           styles.messageBubble,
+//           isUser ? styles.userBubble : styles.consultantBubble,
+//         ]}
+//       >
+//         <Text style={isUser ? styles.userText : styles.consultantText}>
+//           {item.text}
+//         </Text>
 //       </View>
 //     );
 //   };
 
-//   useEffect(() => {
-//     flatListRef.current?.scrollToOffset({ animated: true, offset: 0 });
-//   }, [messages]);
-
 //   return (
 //     <SafeAreaView style={styles.container}>
-//       <View style={styles.header}>
-//         <Image source={require('../../assets/left.png')} style={styles.backIcon} />
-//         <View style={styles.profileCircle} />
-//         <View style={{ flexDirection: 'column', flex: 1 }}>
-//           <Text style={styles.headerTitle}>Rupanshi</Text>
-//           <Text style={styles.timerDigits}>{formatTimer()}</Text>
-//         </View>
-
-//         <TouchableOpacity
-//           style={styles.icon}
-//           onPress={() => navigation.navigate('VideoAudioCall', { initialVideo: true })}
-//         >
-//           <Icon name="videocam" size={26} color="#007AFF" />
-//         </TouchableOpacity>
-
-//         <TouchableOpacity
-//           style={styles.icon}
-//           onPress={() => navigation.navigate('VideoAudioCall', { initialVideo: false })}
-//         >
-//           <Icon name="call" size={26} color="#007AFF" />
-//         </TouchableOpacity>
-
-//         <TouchableOpacity style={styles.icon} onPress={endChat}>
-//           <Icon name="exit-to-app" size={26} color="#DD2C00" />
-//         </TouchableOpacity>
+//       {/* ✅ Socket Connection Status Indicator */}
+//       <View style={styles.statusBar}>
+//         <View
+//           style={[
+//             styles.statusDot,
+//             { backgroundColor: isSocketConnected ? '#4CAF50' : '#F44336' },
+//           ]}
+//         />
+//         <Text style={styles.statusText}>
+//           {isSocketConnected ? 'Connected' : 'Disconnected'}
+//         </Text>
+//         {socketId && (
+//           <Text style={styles.socketIdText}>
+//             {' '}
+//             • ID: {socketId.substring(0, 8)}...
+//           </Text>
+//         )}
 //       </View>
 
+//       {!chatSessionId && (
+//         <TouchableOpacity
+//           style={[
+//             styles.startChatBtn,
+//             !isSocketConnected && styles.startChatBtnDisabled,
+//           ]}
+//           onPress={handleStartChat}
+//           disabled={chatStatus === 'loading' || !isSocketConnected}
+//         >
+//           <Text style={styles.startChatBtnText}>
+//             {chatStatus === 'loading'
+//               ? 'Starting...'
+//               : !isSocketConnected
+//               ? 'Connecting to server...'
+//               : 'Start Chat with Astrologer'}
+//           </Text>
+//         </TouchableOpacity>
+//       )}
+
+//       {chatStatus === 'waiting' && (
+//         <Text style={styles.waitingText}>
+//           Waiting for astrologer to accept...
+//         </Text>
+//       )}
+
+//       <FlatList
+//         ref={flatListRef}
+//         data={messages}
+//         inverted
+//         keyExtractor={item => item._id.toString()}
+//         renderItem={renderMessage}
+//         contentContainerStyle={{ padding: 12 }}
+//       />
+
 //       <KeyboardAvoidingView
-//         style={styles.flex}
+//         style={styles.inputContainer}
 //         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-//         keyboardVerticalOffset={72}
 //       >
-//         <FlatList
-//           ref={flatListRef}
-//           style={styles.messagesList}
-//           data={messages}
-//           renderItem={renderMessage}
-//           keyExtractor={item => item._id.toString()}
-//           inverted
+//         <TextInput
+//           value={input}
+//           onChangeText={setInput}
+//           placeholder="Type your message"
+//           style={styles.input}
+//           editable={chatStatus === 'active'}
 //         />
-
-//         <View style={styles.inputBar}>
-//           <View style={styles.inputContainer}>
-//             <TextInput
-//               style={styles.input}
-//               value={input}
-//               onChangeText={setInput}
-//               placeholder="Type a message"
-//             />
-//             <TouchableOpacity style={styles.attachIcon}>
-//               <Icon name="attach-file" size={24} color="#007AFF" />
-//             </TouchableOpacity>
-//           </View>
-
-//           <TouchableOpacity style={styles.icon} onPress={sendMessage}>
-//             <Icon name="send" size={28} color="#007AFF" />
-//           </TouchableOpacity>
-
-//           <TouchableOpacity style={styles.icon}>
-//             <Icon name="mic" size={28} color="#007AFF" />
-//           </TouchableOpacity>
-//         </View>
+//         <TouchableOpacity
+//           onPress={sendMessage}
+//           style={styles.sendBtn}
+//           disabled={chatStatus !== 'active'}
+//         >
+//           <Icon
+//             name="send"
+//             size={28}
+//             color={chatStatus === 'active' ? '#007AFF' : '#CCCCCC'}
+//           />
+//         </TouchableOpacity>
 //       </KeyboardAvoidingView>
 //     </SafeAreaView>
 //   );
 // };
 
-// // 💅 Styles (same as before)
 // const styles = StyleSheet.create({
 //   container: { flex: 1, backgroundColor: '#fff' },
-//   flex: { flex: 1 },
-//   header: {
-//     height: 80,
+
+//   // ✅ Status Bar Styles
+//   statusBar: {
 //     flexDirection: 'row',
 //     alignItems: 'center',
-//     padding: 8,
-//     backgroundColor: '#F5F5F5',
+//     padding: 12,
+//     backgroundColor: '#f5f5f5',
 //     borderBottomWidth: 1,
-//     borderColor: '#eee',
+//     borderBottomColor: '#e0e0e0',
 //   },
-//   profileCircle: {
-//     width: 40,
-//     height: 40,
-//     borderRadius: 19,
-//     backgroundColor: '#ddd',
-//     marginRight: 25,
-//     left: 10,
+//   statusDot: {
+//     width: 10,
+//     height: 10,
+//     borderRadius: 5,
+//     marginRight: 8,
 //   },
-//   headerTitle: { fontWeight: 'bold', fontSize: 18 },
-//   timerDigits: { fontSize: 16, color: '#444', marginTop: 2 },
-//   icon: { marginHorizontal: 7 },
-//   messagesList: { flex: 1, paddingHorizontal: 12 },
-//   systemBubble: {
-//     backgroundColor: '#FFF9C4',
-//     alignSelf: 'center',
-//     borderRadius: 13,
-//     margin: 6,
-//     padding: 10,
-//     maxWidth: '95%',
+//   statusText: {
+//     fontSize: 13,
+//     fontWeight: '600',
+//     color: '#333',
 //   },
-//   systemText: { color: '#555', fontSize: 13 },
-//   userBubble: {
-//     backgroundColor: '#C8E6C9',
-//     alignSelf: 'flex-end',
-//     borderRadius: 13,
-//     margin: 6,
-//     padding: 10,
-//     maxWidth: '75%',
+//   socketIdText: {
+//     fontSize: 11,
+//     color: '#666',
 //   },
-//   userText: { color: '#222', fontSize: 15 },
-//   consultantBubble: {
-//     backgroundColor: '#fff',
-//     borderColor: '#eee',
-//     borderWidth: 1,
-//     alignSelf: 'flex-start',
-//     borderRadius: 13,
-//     margin: 6,
-//     padding: 10,
-//     maxWidth: '75%',
-//   },
-//   consultantText: { color: '#444', fontSize: 15 },
-//   inputBar: {
-//     flexDirection: 'row',
+
+//   startChatBtn: {
+//     backgroundColor: '#007AFF',
+//     padding: 15,
+//     margin: 12,
+//     borderRadius: 10,
 //     alignItems: 'center',
+//   },
+//   startChatBtnDisabled: {
+//     backgroundColor: '#CCCCCC',
+//   },
+//   startChatBtnText: {
+//     color: '#fff',
+//     fontWeight: 'bold',
+//     fontSize: 16,
+//   },
+
+//   waitingText: {
+//     color: '#007AFF',
+//     textAlign: 'center',
+//     margin: 12,
+//     fontSize: 14,
+//     fontStyle: 'italic',
+//   },
+
+//   messageBubble: {
+//     borderRadius: 15,
+//     padding: 12,
+//     marginVertical: 6,
+//     maxWidth: '75%',
+//   },
+//   userBubble: {
+//     backgroundColor: '#DCF8C6',
+//     alignSelf: 'flex-end',
+//   },
+//   consultantBubble: {
+//     backgroundColor: '#E5E5EA',
+//     alignSelf: 'flex-start',
+//   },
+//   userText: { fontSize: 16, color: '#000' },
+//   consultantText: { fontSize: 16, color: '#000' },
+
+//   inputContainer: {
+//     flexDirection: 'row',
+//     padding: 12,
 //     borderTopWidth: 1,
 //     borderColor: '#eee',
-//     paddingHorizontal: 4,
-//     backgroundColor: '#fafafa',
-//   },
-//   inputContainer: {
-//     flex: 1,
-//     flexDirection: 'row',
-//     alignItems: 'center',
 //     backgroundColor: '#fff',
-//     borderRadius: 25,
-//     borderWidth: 1,
-//     borderColor: '#ddd',
-//     marginRight: 6,
-//     paddingRight: 6,
+//     alignItems: 'center',
 //   },
 //   input: {
-//     width: '100%',
-//     height: 42,
 //     flex: 1,
-//     fontSize: 15,
-//     paddingHorizontal: 14,
+//     paddingHorizontal: 12,
+//     height: 44,
+//     fontSize: 16,
+//     backgroundColor: '#f1f1f1',
+//     borderRadius: 24,
 //   },
-//   attachIcon: { paddingLeft: 2, paddingRight: 2 },
-//   backIcon: { width: 35, height: 35, left: 5 },
+//   sendBtn: {
+//     marginLeft: 12,
+//   },
 // });
 
 // export default ChatScreen;
+
+
+
+// // src/screens/chat/ChatScreen.js (USER SIDE)
+// import React, { useState, useEffect, useRef } from 'react';
+// import {
+//   View,
+//   Text,
+//   TouchableOpacity,
+//   TextInput,
+//   FlatList,
+//   SafeAreaView,
+//   StyleSheet,
+//   KeyboardAvoidingView,
+//   Platform,
+//   Alert,
+//   ActivityIndicator,
+// } from 'react-native';
+// import Icon from 'react-native-vector-icons/MaterialIcons';
+// import { ChatService } from '../../services/api/chat/ChatService';
+// import chatSocket from '../../services/api/socket/chatSocket';
+
+// const USER_ID = '68eba7c81bd75c055cf164ab';
+// const ASTROLOGER_ID = '68f55913fcac5b00b4225a8e';
+
+// const ChatScreen = ({ navigation }) => {
+//   const [messages, setMessages] = useState([]);
+//   const [input, setInput] = useState('');
+//   const [chatSessionId, setChatSessionId] = useState(null);
+//   const [chatStatus, setChatStatus] = useState('idle'); // idle | loading | waiting | active | ended | rejected
+//   const [isSocketConnected, setIsSocketConnected] = useState(false);
+//   const [socketId, setSocketId] = useState(null);
+//   const flatListRef = useRef(null);
+
+//   // ============================================
+//   // SOCKET SETUP
+//   // ============================================
+//   useEffect(() => {
+//     console.log('🔄 [USER] Initializing socket connection...');
+//     chatSocket.connect(USER_ID);
+
+//     // Connection Events
+//     chatSocket.on('connect', () => {
+//       const id = chatSocket.getSocketId();
+//       console.log('✅ [USER] Socket connected successfully');
+//       console.log('🆔 [USER] Socket ID:', id);
+//       setIsSocketConnected(true);
+//       setSocketId(id);
+//     });
+
+//     chatSocket.on('disconnect', (reason) => {
+//       console.log('❌ [USER] Socket disconnected. Reason:', reason);
+//       setIsSocketConnected(false);
+//       setSocketId(null);
+//     });
+
+//     chatSocket.on('connect_error', (error) => {
+//       console.error('🔴 [USER] Socket connection error:', error.message);
+//       Alert.alert('Connection Error', `Socket failed: ${error.message}`);
+//     });
+
+//     // ✅ CHAT ACCEPTED BY ASTROLOGER
+//     chatSocket.on('chat_accepted', (data) => {
+//       console.log('✅ [USER] Chat accepted by astrologer:', data);
+//       if (data.threadId === chatSessionId) {
+//         setChatStatus('active');
+//         Alert.alert('Chat Started! 🎉', 'Astrologer has accepted your request. You can now chat!');
+//       }
+//     });
+
+//     // ✅ CHAT REJECTED BY ASTROLOGER
+//     chatSocket.on('chat_rejected', (data) => {
+//       console.log('❌ [USER] Chat rejected by astrologer:', data);
+//       if (data.threadId === chatSessionId) {
+//         setChatStatus('rejected');
+//         Alert.alert('Chat Declined', 'Astrologer rejected the request. Amount has been refunded to your wallet.');
+//         setChatSessionId(null);
+//         setMessages([]);
+//       }
+//     });
+
+//     // ✅ INCOMING MESSAGE FROM ASTROLOGER
+//     chatSocket.on('chat_message', (msg) => {
+//       console.log('📩 [USER] Received message:', msg);
+//       if (msg.threadId === chatSessionId) {
+//         setMessages((prev) => [
+//           {
+//             _id: Date.now() + Math.random(), // Unique ID
+//             text: msg.message,
+//             user: { _id: msg.senderId === USER_ID ? 'user' : 'astrologer' },
+//             createdAt: new Date(),
+//           },
+//           ...prev,
+//         ]);
+//       }
+//     });
+
+//     // ✅ CHAT ENDED BY ASTROLOGER
+//     chatSocket.on('chat_ended', (data) => {
+//       console.log('🔚 [USER] Chat ended by astrologer:', data);
+//       if (data.threadId === chatSessionId) {
+//         setChatStatus('ended');
+//         Alert.alert(
+//           'Chat Ended',
+//           `Duration: ${data.duration || 'N/A'} mins\nTotal: ₹${data.totalAmount || 'N/A'}`,
+//           [{ text: 'OK', onPress: () => navigation.goBack() }]
+//         );
+//       }
+//     });
+
+//     // Check initial connection
+//     const initialStatus = chatSocket.isConnected();
+//     console.log('🔍 [USER] Initial connection status:', initialStatus);
+//     setIsSocketConnected(initialStatus);
+//     if (initialStatus) {
+//       setSocketId(chatSocket.getSocketId());
+//     }
+
+//     // Cleanup
+//     return () => {
+//       console.log('🧹 [USER] Cleaning up socket listeners');
+//       chatSocket.off('connect');
+//       chatSocket.off('disconnect');
+//       chatSocket.off('connect_error');
+//       chatSocket.off('chat_accepted');
+//       chatSocket.off('chat_rejected');
+//       chatSocket.off('chat_message');
+//       chatSocket.off('chat_ended');
+//       chatSocket.disconnect();
+//     };
+//   }, [chatSessionId]);
+
+//   // ============================================
+//   // START CHAT (API + SOCKET)
+//   // ============================================
+//   const handleStartChat = async () => {
+//     try {
+//       console.log('🚀 [USER] Starting chat with astrologer:', ASTROLOGER_ID);
+//       console.log('🔍 [USER] Socket connected?', isSocketConnected);
+//       console.log('🔍 [USER] Socket ID:', socketId);
+
+//       if (!isSocketConnected) {
+//         Alert.alert('Connection Error', 'Socket not connected. Please wait...');
+//         console.error('❌ [USER] Cannot start - socket not connected');
+//         return;
+//       }
+
+//       setChatStatus('loading');
+
+//       // ✅ STEP 1: API Call to Create Session
+//       console.log('📞 [USER] Calling ChatService.initiateChat API...');
+//       const sessionRes = await ChatService.initiateChat(ASTROLOGER_ID);
+//       console.log('📥 [USER] API Response:', JSON.stringify(sessionRes, null, 2));
+
+//       if (!sessionRes || !sessionRes.success) {
+//         throw new Error(sessionRes?.message || 'Failed to create session');
+//       }
+
+//       const sessionId = sessionRes.data?.sessionId;
+//       if (!sessionId) {
+//         throw new Error('No sessionId in response');
+//       }
+
+//       console.log('✅ [USER] Session created with ID:', sessionId);
+
+//       setChatSessionId(sessionId);
+//       setChatStatus('waiting');
+
+//       // ✅ STEP 2: Socket Event to Notify Astrologer
+//       const requestData = {
+//         userId: USER_ID,
+//         astrologerId: ASTROLOGER_ID,
+//         threadId: sessionId,
+//       };
+
+//       console.log('📤 [USER] Emitting chat_request event:', requestData);
+
+//       chatSocket.emit('chat_request', requestData, (resp) => {
+//         console.log('📥 [USER] chat_request callback:', resp);
+//         if (resp && !resp.success) {
+//           console.error('❌ [USER] Chat request failed:', resp.message);
+//           setChatStatus('idle');
+//           Alert.alert('Request Failed', resp.message);
+//         } else {
+//           console.log('✅ [USER] Chat request sent successfully');
+//         }
+//       });
+//     } catch (err) {
+//       console.error('❌ [USER] Chat start error:', err.message);
+//       console.error('❌ [USER] Full error:', err);
+//       setChatStatus('idle');
+//       Alert.alert('Error', err.message);
+//     }
+//   };
+
+//   // ============================================
+//   // SEND MESSAGE (SOCKET ONLY - USER NEVER CALLS ACCEPT API)
+//   // ============================================
+//   const sendMessage = () => {
+//     if (!chatSessionId || chatStatus !== 'active') {
+//       Alert.alert('Wait', 'Chat is not active yet. Waiting for astrologer...');
+//       console.warn('⚠️ [USER] Cannot send - chat status:', chatStatus);
+//       return;
+//     }
+
+//     if (!input.trim()) {
+//       console.warn('⚠️ [USER] Empty message - not sending');
+//       return;
+//     }
+
+//     const messageData = {
+//       threadId: chatSessionId,
+//       senderId: USER_ID,
+//       receiverId: ASTROLOGER_ID,
+//       message: input.trim(),
+//     };
+
+//     console.log('📤 [USER] Sending message:', messageData);
+
+//     // Emit via socket for real-time delivery
+//     chatSocket.emit('send_message', messageData);
+
+//     // Update UI immediately (optimistic update)
+//     setMessages((prev) => [
+//       {
+//         _id: Date.now(),
+//         text: input.trim(),
+//         user: { _id: 'user' },
+//         createdAt: new Date(),
+//       },
+//       ...prev,
+//     ]);
+
+//     setInput('');
+//   };
+
+//   // ============================================
+//   // END CHAT (API CALL)
+//   // ============================================
+//   const handleEndChat = async () => {
+//     if (!chatSessionId) return;
+
+//     Alert.alert(
+//       'End Chat?',
+//       'Are you sure you want to end this chat session?',
+//       [
+//         { text: 'Cancel', style: 'cancel' },
+//         {
+//           text: 'End Chat',
+//           style: 'destructive',
+//           onPress: async () => {
+//             try {
+//               console.log('🔚 [USER] Ending chat session');
+
+//               const response = await ChatService.endChatSession(
+//                 chatSessionId,
+//                 'Session ended by user'
+//               );
+
+//               if (!response.success) {
+//                 throw new Error(response.message);
+//               }
+
+//               setChatStatus('ended');
+//               setChatSessionId(null);
+//               setMessages([]);
+
+//               Alert.alert(
+//                 'Chat Ended',
+//                 `Duration: ${response.data.duration} mins\nTotal: ₹${response.data.totalAmount}`,
+//                 [{ text: 'OK', onPress: () => navigation.goBack() }]
+//               );
+//             } catch (error) {
+//               console.error('❌ [USER] End chat error:', error);
+//               Alert.alert('Error', error.message);
+//             }
+//           },
+//         },
+//       ]
+//     );
+//   };
+
+//   // ============================================
+//   // RENDER MESSAGE
+//   // ============================================
+//   const renderMessage = ({ item }) => {
+//     const isUser = item.user?._id === 'user';
+//     return (
+//       <View
+//         style={[
+//           styles.messageBubble,
+//           isUser ? styles.userBubble : styles.astrologerBubble,
+//         ]}
+//       >
+//         <Text style={styles.messageText}>{item.text}</Text>
+//       </View>
+//     );
+//   };
+
+//   // ============================================
+//   // UI RENDER
+//   // ============================================
+//   return (
+//     <SafeAreaView style={styles.container}>
+//       {/* Socket Status Bar */}
+//       <View style={styles.statusBar}>
+//         <View
+//           style={[
+//             styles.statusDot,
+//             { backgroundColor: isSocketConnected ? '#4CAF50' : '#F44336' },
+//           ]}
+//         />
+//         <Text style={styles.statusText}>
+//           {isSocketConnected ? 'Connected' : 'Disconnected'}
+//         </Text>
+//         {socketId && (
+//           <Text style={styles.socketIdText}> • {socketId.substring(0, 8)}</Text>
+//         )}
+
+//         {/* End Chat Button */}
+//         {chatStatus === 'active' && (
+//           <TouchableOpacity onPress={handleEndChat} style={styles.endBtn}>
+//             <Text style={styles.endBtnText}>End</Text>
+//           </TouchableOpacity>
+//         )}
+//       </View>
+
+//       {/* Start Chat Button */}
+//       {chatStatus === 'idle' && !chatSessionId && (
+//         <TouchableOpacity
+//           style={[
+//             styles.startChatBtn,
+//             !isSocketConnected && styles.startChatBtnDisabled,
+//           ]}
+//           onPress={handleStartChat}
+//           disabled={!isSocketConnected}
+//         >
+//           <Text style={styles.startChatBtnText}>
+//             {!isSocketConnected
+//               ? 'Connecting to server...'
+//               : 'Start Chat with Astrologer'}
+//           </Text>
+//         </TouchableOpacity>
+//       )}
+
+//       {/* Loading State */}
+//       {chatStatus === 'loading' && (
+//         <View style={styles.centerContainer}>
+//           <ActivityIndicator size="large" color="#007AFF" />
+//           <Text style={styles.statusMessage}>Creating session...</Text>
+//         </View>
+//       )}
+
+//       {/* Waiting for Acceptance */}
+//       {chatStatus === 'waiting' && (
+//         <View style={styles.centerContainer}>
+//           <ActivityIndicator size="large" color="#007AFF" />
+//           <Text style={styles.statusMessage}>
+//             Waiting for astrologer to accept...
+//           </Text>
+//         </View>
+//       )}
+
+//       {/* Active Chat - Messages List */}
+//       {chatStatus === 'active' && (
+//         <>
+//           <FlatList
+//             ref={flatListRef}
+//             data={messages}
+//             inverted
+//             keyExtractor={(item) => item._id.toString()}
+//             renderItem={renderMessage}
+//             contentContainerStyle={{ padding: 12 }}
+//           />
+
+//           {/* Input Area */}
+//           <KeyboardAvoidingView
+//             style={styles.inputContainer}
+//             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+//           >
+//             <TextInput
+//               value={input}
+//               onChangeText={setInput}
+//               placeholder="Type your message"
+//               style={styles.input}
+//             />
+//             <TouchableOpacity onPress={sendMessage} style={styles.sendBtn}>
+//               <Icon name="send" size={28} color="#007AFF" />
+//             </TouchableOpacity>
+//           </KeyboardAvoidingView>
+//         </>
+//       )}
+
+//       {/* Chat Ended */}
+//       {chatStatus === 'ended' && (
+//         <View style={styles.centerContainer}>
+//           <Text style={styles.endedText}>Chat session has ended</Text>
+//           <TouchableOpacity
+//             style={styles.backBtn}
+//             onPress={() => navigation.goBack()}
+//           >
+//             <Text style={styles.backBtnText}>Go Back</Text>
+//           </TouchableOpacity>
+//         </View>
+//       )}
+//     </SafeAreaView>
+//   );
+// };
+
+// // ============================================
+// // STYLES
+// // ============================================
+// const styles = StyleSheet.create({
+//   container: { flex: 1, backgroundColor: '#fff' },
+//   statusBar: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     padding: 12,
+//     backgroundColor: '#f5f5f5',
+//     borderBottomWidth: 1,
+//     borderBottomColor: '#e0e0e0',
+//   },
+//   statusDot: {
+//     width: 10,
+//     height: 10,
+//     borderRadius: 5,
+//     marginRight: 8,
+//   },
+//   statusText: { fontSize: 13, fontWeight: '600', color: '#333' },
+//   socketIdText: { fontSize: 11, color: '#666', flex: 1 },
+//   endBtn: {
+//     backgroundColor: '#FF3B30',
+//     paddingHorizontal: 12,
+//     paddingVertical: 6,
+//     borderRadius: 6,
+//   },
+//   endBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+//   startChatBtn: {
+//     backgroundColor: '#007AFF',
+//     padding: 15,
+//     margin: 12,
+//     borderRadius: 10,
+//     alignItems: 'center',
+//   },
+//   startChatBtnDisabled: { backgroundColor: '#CCCCCC' },
+//   startChatBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+//   centerContainer: {
+//     flex: 1,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//   },
+//   statusMessage: {
+//     marginTop: 12,
+//     fontSize: 14,
+//     color: '#666',
+//     fontStyle: 'italic',
+//   },
+//   messageBubble: {
+//     borderRadius: 15,
+//     padding: 12,
+//     marginVertical: 6,
+//     maxWidth: '75%',
+//   },
+//   userBubble: {
+//     backgroundColor: '#DCF8C6',
+//     alignSelf: 'flex-end',
+//   },
+//   astrologerBubble: {
+//     backgroundColor: '#E5E5EA',
+//     alignSelf: 'flex-start',
+//   },
+//   messageText: { fontSize: 16, color: '#000' },
+//   inputContainer: {
+//     flexDirection: 'row',
+//     padding: 12,
+//     borderTopWidth: 1,
+//     borderColor: '#eee',
+//     backgroundColor: '#fff',
+//     alignItems: 'center',
+//   },
+//   input: {
+//     flex: 1,
+//     paddingHorizontal: 12,
+//     height: 44,
+//     fontSize: 16,
+//     backgroundColor: '#f1f1f1',
+//     borderRadius: 24,
+//   },
+//   sendBtn: { marginLeft: 12 },
+//   endedText: { fontSize: 18, color: '#999', marginBottom: 20 },
+//   backBtn: {
+//     backgroundColor: '#007AFF',
+//     paddingHorizontal: 24,
+//     paddingVertical: 12,
+//     borderRadius: 8,
+//   },
+//   backBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+// });
+
+// export default ChatScreen;
+
+
+
+
+// // src/screens/chat/ChatScreen.js (USER SIDE - DEBUG VERSION)
+// import React, { useState, useEffect, useRef } from 'react';
+// import {
+//   View,
+//   Text,
+//   TouchableOpacity,
+//   TextInput,
+//   FlatList,
+//   SafeAreaView,
+//   StyleSheet,
+//   KeyboardAvoidingView,
+//   Platform,
+//   Alert,
+//   ActivityIndicator,
+// } from 'react-native';
+// import Icon from 'react-native-vector-icons/MaterialIcons';
+// import { ChatService } from '../../services/api/chat/ChatService';
+// import chatSocket from '../../services/api/socket/chatSocket';
+
+// const USER_ID = '68eba7c81bd75c055cf164ab';
+// const ASTROLOGER_ID = '68f55913fcac5b00b4225a8e';
+
+// const ChatScreen = ({ navigation }) => {
+//   const [messages, setMessages] = useState([]);
+//   const [input, setInput] = useState('');
+//   const [chatSessionId, setChatSessionId] = useState(null);
+//   const [chatStatus, setChatStatus] = useState('idle');
+//   const [isSocketConnected, setIsSocketConnected] = useState(false);
+//   const [socketId, setSocketId] = useState(null);
+//   const flatListRef = useRef(null);
+
+//   // ============================================
+//   // INITIAL DEBUG CHECK
+//   // ============================================
+//   useEffect(() => {
+//     console.log('==========================================');
+//     console.log('🧪 [USER] INITIAL DEBUG CHECK');
+//     console.log('🧪 ChatService exists?', !!ChatService);
+//     console.log('🧪 ChatService.initiateChat exists?', !!ChatService?.initiateChat);
+//     console.log('🧪 chatSocket exists?', !!chatSocket);
+//     console.log('🧪 chatSocket.connect exists?', !!chatSocket?.connect);
+//     console.log('🧪 USER_ID:', USER_ID);
+//     console.log('🧪 ASTROLOGER_ID:', ASTROLOGER_ID);
+//     console.log('==========================================');
+//   }, []);
+
+//   // ============================================
+//   // SOCKET SETUP
+//   // ============================================
+//   useEffect(() => {
+//     console.log('🔄 [USER] Initializing socket connection...');
+//     console.log('🔄 [USER] About to call chatSocket.connect with USER_ID:', USER_ID);
+    
+//     chatSocket.connect(USER_ID);
+
+//     // Connection Events
+//     chatSocket.on('connect', () => {
+//       const id = chatSocket.getSocketId();
+//       console.log('✅ [USER] Socket connected successfully');
+//       console.log('🆔 [USER] Socket ID:', id);
+//       setIsSocketConnected(true);
+//       setSocketId(id);
+//     });
+
+//     chatSocket.on('disconnect', (reason) => {
+//       console.log('❌ [USER] Socket disconnected. Reason:', reason);
+//       setIsSocketConnected(false);
+//       setSocketId(null);
+//     });
+
+//     chatSocket.on('connect_error', (error) => {
+//       console.error('🔴 [USER] Socket connection error:', error.message);
+//       Alert.alert('Connection Error', `Socket failed: ${error.message}`);
+//     });
+
+//     // ✅ CHAT ACCEPTED BY ASTROLOGER
+//     chatSocket.on('chat_accepted', (data) => {
+//       console.log('✅ [USER] Chat accepted by astrologer:', data);
+//       if (data.threadId === chatSessionId) {
+//         setChatStatus('active');
+//         Alert.alert('Chat Started! 🎉', 'Astrologer has accepted your request. You can now chat!');
+//       }
+//     });
+
+//     // ✅ CHAT REJECTED BY ASTROLOGER
+//     chatSocket.on('chat_rejected', (data) => {
+//       console.log('❌ [USER] Chat rejected by astrologer:', data);
+//       if (data.threadId === chatSessionId) {
+//         setChatStatus('rejected');
+//         Alert.alert('Chat Declined', 'Astrologer rejected the request. Amount has been refunded to your wallet.');
+//         setChatSessionId(null);
+//         setMessages([]);
+//       }
+//     });
+
+//     // ✅ INCOMING MESSAGE FROM ASTROLOGER
+//     chatSocket.on('chat_message', (msg) => {
+//       console.log('📩 [USER] Received message:', msg);
+//       if (msg.threadId === chatSessionId) {
+//         setMessages((prev) => [
+//           {
+//             _id: Date.now() + Math.random(),
+//             text: msg.message,
+//             user: { _id: msg.senderId === USER_ID ? 'user' : 'astrologer' },
+//             createdAt: new Date(),
+//           },
+//           ...prev,
+//         ]);
+//       }
+//     });
+
+//     // ✅ CHAT ENDED BY ASTROLOGER
+//     chatSocket.on('chat_ended', (data) => {
+//       console.log('🔚 [USER] Chat ended by astrologer:', data);
+//       if (data.threadId === chatSessionId) {
+//         setChatStatus('ended');
+//         Alert.alert(
+//           'Chat Ended',
+//           `Duration: ${data.duration || 'N/A'} mins\nTotal: ₹${data.totalAmount || 'N/A'}`,
+//           [{ text: 'OK', onPress: () => navigation.goBack() }]
+//         );
+//       }
+//     });
+
+//     // Check initial connection
+//     const initialStatus = chatSocket.isConnected();
+//     console.log('🔍 [USER] Initial connection status:', initialStatus);
+//     setIsSocketConnected(initialStatus);
+//     if (initialStatus) {
+//       setSocketId(chatSocket.getSocketId());
+//     }
+
+//     // Cleanup
+//     return () => {
+//       console.log('🧹 [USER] Cleaning up socket listeners');
+//       chatSocket.off('connect');
+//       chatSocket.off('disconnect');
+//       chatSocket.off('connect_error');
+//       chatSocket.off('chat_accepted');
+//       chatSocket.off('chat_rejected');
+//       chatSocket.off('chat_message');
+//       chatSocket.off('chat_ended');
+//       chatSocket.disconnect();
+//     };
+//   }, []);
+
+//   // ============================================
+//   // START CHAT (API + SOCKET) - WITH EXTENSIVE DEBUGGING
+//   // ============================================
+//   const handleStartChat = async () => {
+//     console.log('==========================================');
+//     console.log('🚀 [USER] START CHAT BUTTON PRESSED');
+//     console.log('==========================================');
+    
+//     try {
+//       console.log('1️⃣ [USER] Starting chat with astrologer:', ASTROLOGER_ID);
+//       console.log('2️⃣ [USER] Socket connected?', isSocketConnected);
+//       console.log('3️⃣ [USER] Socket ID:', socketId);
+//       console.log('4️⃣ [USER] chatSocket.isConnected():', chatSocket.isConnected());
+
+//       if (!isSocketConnected) {
+//         console.error('❌ [USER] Socket NOT connected - aborting');
+//         Alert.alert('Connection Error', 'Socket not connected. Please restart app and try again.');
+//         return;
+//       }
+
+//       console.log('5️⃣ [USER] Setting status to loading...');
+//       setChatStatus('loading');
+
+//       // ✅ STEP 1: API Call to Create Session
+//       console.log('6️⃣ [USER] About to call ChatService.initiateChat...');
+//       console.log('6️⃣ [USER] ChatService:', ChatService);
+//       console.log('6️⃣ [USER] ChatService.initiateChat:', ChatService.initiateChat);
+//       console.log('6️⃣ [USER] Astrologer ID param:', ASTROLOGER_ID);
+      
+//       const sessionRes = await ChatService.initiateChat(ASTROLOGER_ID);
+      
+//       console.log('7️⃣ [USER] API call completed');
+//       console.log('7️⃣ [USER] Response type:', typeof sessionRes);
+//       console.log('7️⃣ [USER] Response:', sessionRes);
+//       console.log('7️⃣ [USER] Response.success:', sessionRes?.success);
+//       console.log('7️⃣ [USER] Response.data:', sessionRes?.data);
+//       console.log('7️⃣ [USER] Response.data.sessionId:', sessionRes?.data?.sessionId);
+
+//       if (!sessionRes || !sessionRes.success) {
+//         console.error('❌ [USER] API call failed');
+//         console.error('❌ [USER] Response:', sessionRes);
+//         throw new Error(sessionRes?.message || 'Failed to create session');
+//       }
+
+//       const sessionId = sessionRes.data?.sessionId;
+//       if (!sessionId) {
+//         console.error('❌ [USER] No sessionId in response');
+//         throw new Error('No sessionId in response');
+//       }
+
+//       console.log('8️⃣ [USER] Session created with ID:', sessionId);
+
+//       setChatSessionId(sessionId);
+//       setChatStatus('waiting');
+//       console.log('9️⃣ [USER] State updated - sessionId and status set');
+
+//       // ✅ STEP 2: Socket Event to Notify Astrologer
+//       const requestData = {
+//         userId: USER_ID,
+//         astrologerId: ASTROLOGER_ID,
+//         threadId: sessionId,
+//       };
+
+//       console.log('🔟 [USER] About to emit chat_request');
+//       console.log('🔟 [USER] Request data:', requestData);
+//       console.log('🔟 [USER] Socket connected?', chatSocket.isConnected());
+
+//       chatSocket.emit('chat_request', requestData, (resp) => {
+//         console.log('1️⃣1️⃣ [USER] chat_request callback received');
+//         console.log('1️⃣1️⃣ [USER] Callback response:', resp);
+        
+//         if (resp && !resp.success) {
+//           console.error('❌ [USER] Chat request callback failed:', resp.message);
+//           setChatStatus('idle');
+//           Alert.alert('Request Failed', resp.message);
+//         } else {
+//           console.log('✅ [USER] Chat request callback success');
+//         }
+//       });
+
+//       console.log('1️⃣2️⃣ [USER] chat_request emitted successfully');
+//       console.log('==========================================');
+//     } catch (err) {
+//       console.error('==========================================');
+//       console.error('❌ [USER] EXCEPTION CAUGHT');
+//       console.error('❌ [USER] Error message:', err.message);
+//       console.error('❌ [USER] Error stack:', err.stack);
+//       console.error('❌ [USER] Full error:', err);
+//       console.error('==========================================');
+//       setChatStatus('idle');
+//       Alert.alert('Error', err.message);
+//     }
+//   };
+
+//   // ============================================
+//   // SEND MESSAGE
+//   // ============================================
+//   const sendMessage = () => {
+//     if (!chatSessionId || chatStatus !== 'active') {
+//       Alert.alert('Wait', 'Chat is not active yet. Waiting for astrologer...');
+//       console.warn('⚠️ [USER] Cannot send - chat status:', chatStatus);
+//       return;
+//     }
+
+//     if (!input.trim()) {
+//       console.warn('⚠️ [USER] Empty message - not sending');
+//       return;
+//     }
+
+//     const messageData = {
+//       threadId: chatSessionId,
+//       senderId: USER_ID,
+//       receiverId: ASTROLOGER_ID,
+//       message: input.trim(),
+//     };
+
+//     console.log('📤 [USER] Sending message:', messageData);
+
+//     chatSocket.emit('send_message', messageData);
+
+//     setMessages((prev) => [
+//       {
+//         _id: Date.now(),
+//         text: input.trim(),
+//         user: { _id: 'user' },
+//         createdAt: new Date(),
+//       },
+//       ...prev,
+//     ]);
+
+//     setInput('');
+//   };
+
+//   // ============================================
+//   // END CHAT
+//   // ============================================
+//   const handleEndChat = async () => {
+//     if (!chatSessionId) return;
+
+//     Alert.alert(
+//       'End Chat?',
+//       'Are you sure you want to end this chat session?',
+//       [
+//         { text: 'Cancel', style: 'cancel' },
+//         {
+//           text: 'End Chat',
+//           style: 'destructive',
+//           onPress: async () => {
+//             try {
+//               console.log('🔚 [USER] Ending chat session');
+
+//               const response = await ChatService.endChatSession(
+//                 chatSessionId,
+//                 'Session ended by user'
+//               );
+
+//               if (!response.success) {
+//                 throw new Error(response.message);
+//               }
+
+//               setChatStatus('ended');
+//               setChatSessionId(null);
+//               setMessages([]);
+
+//               Alert.alert(
+//                 'Chat Ended',
+//                 `Duration: ${response.data.duration} mins\nTotal: ₹${response.data.totalAmount}`,
+//                 [{ text: 'OK', onPress: () => navigation.goBack() }]
+//               );
+//             } catch (error) {
+//               console.error('❌ [USER] End chat error:', error);
+//               Alert.alert('Error', error.message);
+//             }
+//           },
+//         },
+//       ]
+//     );
+//   };
+
+//   // ============================================
+//   // RENDER MESSAGE
+//   // ============================================
+//   const renderMessage = ({ item }) => {
+//     const isUser = item.user?._id === 'user';
+//     return (
+//       <View
+//         style={[
+//           styles.messageBubble,
+//           isUser ? styles.userBubble : styles.astrologerBubble,
+//         ]}
+//       >
+//         <Text style={styles.messageText}>{item.text}</Text>
+//       </View>
+//     );
+//   };
+
+//   // ============================================
+//   // UI RENDER
+//   // ============================================
+//   return (
+//     <SafeAreaView style={styles.container}>
+//       {/* Socket Status Bar */}
+//       <View style={styles.statusBar}>
+//         <View
+//           style={[
+//             styles.statusDot,
+//             { backgroundColor: isSocketConnected ? '#4CAF50' : '#F44336' },
+//           ]}
+//         />
+//         <Text style={styles.statusText}>
+//           {isSocketConnected ? 'Connected' : 'Disconnected'}
+//         </Text>
+//         {socketId && (
+//           <Text style={styles.socketIdText}> • {socketId.substring(0, 8)}</Text>
+//         )}
+
+//         {/* End Chat Button */}
+//         {chatStatus === 'active' && (
+//           <TouchableOpacity onPress={handleEndChat} style={styles.endBtn}>
+//             <Text style={styles.endBtnText}>End</Text>
+//           </TouchableOpacity>
+//         )}
+//       </View>
+
+//       {/* Start Chat Button */}
+//       {chatStatus === 'idle' && !chatSessionId && (
+//         <TouchableOpacity
+//           style={[
+//             styles.startChatBtn,
+//             !isSocketConnected && styles.startChatBtnDisabled,
+//           ]}
+//           onPress={handleStartChat}
+//           disabled={!isSocketConnected}
+//         >
+//           <Text style={styles.startChatBtnText}>
+//             {!isSocketConnected
+//               ? 'Connecting to server...'
+//               : 'Start Chat with Astrologer'}
+//           </Text>
+//         </TouchableOpacity>
+//       )}
+
+//       {/* Loading State */}
+//       {chatStatus === 'loading' && (
+//         <View style={styles.centerContainer}>
+//           <ActivityIndicator size="large" color="#007AFF" />
+//           <Text style={styles.statusMessage}>Creating session...</Text>
+//         </View>
+//       )}
+
+//       {/* Waiting for Acceptance */}
+//       {chatStatus === 'waiting' && (
+//         <View style={styles.centerContainer}>
+//           <ActivityIndicator size="large" color="#007AFF" />
+//           <Text style={styles.statusMessage}>
+//             Waiting for astrologer to accept...
+//           </Text>
+//         </View>
+//       )}
+
+//       {/* Active Chat - Messages List */}
+//       {chatStatus === 'active' && (
+//         <>
+//           <FlatList
+//             ref={flatListRef}
+//             data={messages}
+//             inverted
+//             keyExtractor={(item) => item._id.toString()}
+//             renderItem={renderMessage}
+//             contentContainerStyle={{ padding: 12 }}
+//           />
+
+//           {/* Input Area */}
+//           <KeyboardAvoidingView
+//             style={styles.inputContainer}
+//             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+//           >
+//             <TextInput
+//               value={input}
+//               onChangeText={setInput}
+//               placeholder="Type your message"
+//               style={styles.input}
+//             />
+//             <TouchableOpacity onPress={sendMessage} style={styles.sendBtn}>
+//               <Icon name="send" size={28} color="#007AFF" />
+//             </TouchableOpacity>
+//           </KeyboardAvoidingView>
+//         </>
+//       )}
+
+//       {/* Chat Ended */}
+//       {chatStatus === 'ended' && (
+//         <View style={styles.centerContainer}>
+//           <Text style={styles.endedText}>Chat session has ended</Text>
+//           <TouchableOpacity
+//             style={styles.backBtn}
+//             onPress={() => navigation.goBack()}
+//           >
+//             <Text style={styles.backBtnText}>Go Back</Text>
+//           </TouchableOpacity>
+//         </View>
+//       )}
+//     </SafeAreaView>
+//   );
+// };
+
+// // ... (styles remain same)
+
+// const styles = StyleSheet.create({
+//   container: { flex: 1, backgroundColor: '#fff' },
+//   statusBar: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     padding: 12,
+//     backgroundColor: '#f5f5f5',
+//     borderBottomWidth: 1,
+//     borderBottomColor: '#e0e0e0',
+//   },
+//   statusDot: {
+//     width: 10,
+//     height: 10,
+//     borderRadius: 5,
+//     marginRight: 8,
+//   },
+//   statusText: { fontSize: 13, fontWeight: '600', color: '#333' },
+//   socketIdText: { fontSize: 11, color: '#666', flex: 1 },
+//   endBtn: {
+//     backgroundColor: '#FF3B30',
+//     paddingHorizontal: 12,
+//     paddingVertical: 6,
+//     borderRadius: 6,
+//   },
+//   endBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+//   startChatBtn: {
+//     backgroundColor: '#007AFF',
+//     padding: 15,
+//     margin: 12,
+//     borderRadius: 10,
+//     alignItems: 'center',
+//   },
+//   startChatBtnDisabled: { backgroundColor: '#CCCCCC' },
+//   startChatBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+//   centerContainer: {
+//     flex: 1,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//   },
+//   statusMessage: {
+//     marginTop: 12,
+//     fontSize: 14,
+//     color: '#666',
+//     fontStyle: 'italic',
+//   },
+//   messageBubble: {
+//     borderRadius: 15,
+//     padding: 12,
+//     marginVertical: 6,
+//     maxWidth: '75%',
+//   },
+//   userBubble: {
+//     backgroundColor: '#DCF8C6',
+//     alignSelf: 'flex-end',
+//   },
+//   astrologerBubble: {
+//     backgroundColor: '#E5E5EA',
+//     alignSelf: 'flex-start',
+//   },
+//   messageText: { fontSize: 16, color: '#000' },
+//   inputContainer: {
+//     flexDirection: 'row',
+//     padding: 12,
+//     borderTopWidth: 1,
+//     borderColor: '#eee',
+//     backgroundColor: '#fff',
+//     alignItems: 'center',
+//   },
+//   input: {
+//     flex: 1,
+//     paddingHorizontal: 12,
+//     height: 44,
+//     fontSize: 16,
+//     backgroundColor: '#f1f1f1',
+//     borderRadius: 24,
+//   },
+//   sendBtn: { marginLeft: 12 },
+//   endedText: { fontSize: 18, color: '#999', marginBottom: 20 },
+//   backBtn: {
+//     backgroundColor: '#007AFF',
+//     paddingHorizontal: 24,
+//     paddingVertical: 12,
+//     borderRadius: 8,
+//   },
+//   backBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+// });
+
+// export default ChatScreen;
+
+// // src/screens/chat/ChatScreen.js (USER SIDE - FIXED)
+// import React, { useState, useEffect, useRef } from 'react';
+// import {
+//   View,
+//   Text,
+//   TouchableOpacity,
+//   TextInput,
+//   FlatList,
+//   SafeAreaView,
+//   StyleSheet,
+//   KeyboardAvoidingView,
+//   Platform,
+//   Alert,
+//   ActivityIndicator,
+// } from 'react-native';
+// import Icon from 'react-native-vector-icons/MaterialIcons';
+// import { ChatService } from '../../services/api/chat/ChatService';
+// import chatSocket from '../../services/api/socket/chatSocket';
+
+// const USER_ID = '68eba7c81bd75c055cf164ab';
+// const ASTROLOGER_ID = '68f55913fcac5b00b4225a8e';
+
+// const ChatScreen = ({ navigation }) => {
+//   const [messages, setMessages] = useState([]);
+//   const [input, setInput] = useState('');
+//   const [chatSessionId, setChatSessionId] = useState(null);
+//   const [chatStatus, setChatStatus] = useState('idle');
+//   const [isSocketConnected, setIsSocketConnected] = useState(false);
+//   const [socketId, setSocketId] = useState(null);
+//   const flatListRef = useRef(null);
+
+//   // ✅ USE REF to avoid dependency issues
+//   const chatSessionIdRef = useRef(null);
+
+//   // ✅ Update ref whenever chatSessionId changes
+//   useEffect(() => {
+//     chatSessionIdRef.current = chatSessionId;
+//   }, [chatSessionId]);
+
+//   // ============================================
+//   // INITIAL DEBUG CHECK
+//   // ============================================
+//   useEffect(() => {
+//     console.log('==========================================');
+//     console.log('🧪 [USER] INITIAL DEBUG CHECK');
+//     console.log('🧪 ChatService exists?', !!ChatService);
+//     console.log('🧪 ChatService.initiateChat exists?', !!ChatService?.initiateChat);
+//     console.log('🧪 chatSocket exists?', !!chatSocket);
+//     console.log('🧪 chatSocket.connect exists?', !!chatSocket?.connect);
+//     console.log('🧪 USER_ID:', USER_ID);
+//     console.log('🧪 ASTROLOGER_ID:', ASTROLOGER_ID);
+//     console.log('==========================================');
+//   }, []);
+
+//   // ============================================
+//   // SOCKET SETUP - RUNS ONCE ON MOUNT
+//   // ============================================
+//   useEffect(() => {
+//     console.log('🔄 [USER] Initializing socket connection...');
+//     console.log('🔄 [USER] About to call chatSocket.connect with USER_ID:', USER_ID);
+    
+//     chatSocket.connect(USER_ID);
+
+//     // Connection Events
+//     chatSocket.on('connect', () => {
+//       const id = chatSocket.getSocketId();
+//       console.log('✅ [USER] Socket connected successfully');
+//       console.log('🆔 [USER] Socket ID:', id);
+//       setIsSocketConnected(true);
+//       setSocketId(id);
+//     });
+
+//     chatSocket.on('disconnect', (reason) => {
+//       console.log('❌ [USER] Socket disconnected. Reason:', reason);
+//       setIsSocketConnected(false);
+//       setSocketId(null);
+//     });
+
+//     chatSocket.on('connect_error', (error) => {
+//       console.error('🔴 [USER] Socket connection error:', error.message);
+//       Alert.alert('Connection Error', `Socket failed: ${error.message}`);
+//     });
+
+//     // ✅ CHAT ACCEPTED BY ASTROLOGER - Use ref
+//     chatSocket.on('chat_accepted', (data) => {
+//       console.log('✅ [USER] Chat accepted by astrologer:', data);
+      
+//       // ✅ Use ref instead of state to avoid dependency issues
+//       if (data.threadId === chatSessionIdRef.current) {
+//         setChatStatus('active');
+//         Alert.alert('Chat Started! 🎉', 'Astrologer has accepted your request. You can now chat!');
+//       }
+//     });
+
+//     // ✅ CHAT REJECTED BY ASTROLOGER - Use ref
+//     chatSocket.on('chat_rejected', (data) => {
+//       console.log('❌ [USER] Chat rejected by astrologer:', data);
+      
+//       // ✅ Use ref instead of state
+//       if (data.threadId === chatSessionIdRef.current) {
+//         setChatStatus('rejected');
+//         Alert.alert('Chat Declined', 'Astrologer rejected the request. Amount has been refunded to your wallet.');
+//         setChatSessionId(null);
+//         setMessages([]);
+//       }
+//     });
+
+//     // ✅ INCOMING MESSAGE FROM ASTROLOGER - Use ref
+//     chatSocket.on('chat_message', (msg) => {
+//       console.log('📩 [USER] Received message:', msg);
+      
+//       // ✅ Use ref instead of state
+//       if (msg.threadId === chatSessionIdRef.current) {
+//         setMessages((prev) => [
+//           {
+//             _id: Date.now() + Math.random(),
+//             text: msg.message,
+//             user: { _id: msg.senderId === USER_ID ? 'user' : 'astrologer' },
+//             createdAt: new Date(),
+//           },
+//           ...prev,
+//         ]);
+//       }
+//     });
+
+//     // ✅ CHAT ENDED BY ASTROLOGER - Use ref
+//     chatSocket.on('chat_ended', (data) => {
+//       console.log('🔚 [USER] Chat ended by astrologer:', data);
+      
+//       // ✅ Use ref instead of state
+//       if (data.threadId === chatSessionIdRef.current) {
+//         setChatStatus('ended');
+//         Alert.alert(
+//           'Chat Ended',
+//           `Duration: ${data.duration || 'N/A'} mins\nTotal: ₹${data.totalAmount || 'N/A'}`,
+//           [{ text: 'OK', onPress: () => navigation.goBack() }]
+//         );
+//       }
+//     });
+
+//     // Check initial connection
+//     const initialStatus = chatSocket.isConnected();
+//     console.log('🔍 [USER] Initial connection status:', initialStatus);
+//     setIsSocketConnected(initialStatus);
+//     if (initialStatus) {
+//       setSocketId(chatSocket.getSocketId());
+//     }
+
+//     // ✅ Cleanup ONLY on component unmount
+//     return () => {
+//       console.log('🧹 [USER] Component unmounting - cleaning up');
+//       chatSocket.off('connect');
+//       chatSocket.off('disconnect');
+//       chatSocket.off('connect_error');
+//       chatSocket.off('chat_accepted');
+//       chatSocket.off('chat_rejected');
+//       chatSocket.off('chat_message');
+//       chatSocket.off('chat_ended');
+//       chatSocket.disconnect();
+//     };
+//   }, []); // ✅ EMPTY ARRAY - runs once on mount
+
+//   // ============================================
+//   // START CHAT (API + SOCKET)
+//   // ============================================
+//   const handleStartChat = async () => {
+//     console.log('==========================================');
+//     console.log('🚀 [USER] START CHAT BUTTON PRESSED');
+//     console.log('==========================================');
+    
+//     try {
+//       console.log('1️⃣ [USER] Starting chat with astrologer:', ASTROLOGER_ID);
+//       console.log('2️⃣ [USER] Socket connected?', isSocketConnected);
+//       console.log('3️⃣ [USER] Socket ID:', socketId);
+//       console.log('4️⃣ [USER] chatSocket.isConnected():', chatSocket.isConnected());
+
+//       if (!isSocketConnected) {
+//         console.error('❌ [USER] Socket NOT connected - aborting');
+//         Alert.alert('Connection Error', 'Socket not connected. Please restart app and try again.');
+//         return;
+//       }
+
+//       console.log('5️⃣ [USER] Setting status to loading...');
+//       setChatStatus('loading');
+
+//       // ✅ STEP 1: API Call to Create Session
+//       console.log('6️⃣ [USER] About to call ChatService.initiateChat...');
+//       console.log('6️⃣ [USER] ChatService:', ChatService);
+//       console.log('6️⃣ [USER] ChatService.initiateChat:', ChatService.initiateChat);
+//       console.log('6️⃣ [USER] Astrologer ID param:', ASTROLOGER_ID);
+      
+//       const sessionRes = await ChatService.initiateChat(ASTROLOGER_ID);
+      
+//       console.log('7️⃣ [USER] API call completed');
+//       console.log('7️⃣ [USER] Response type:', typeof sessionRes);
+//       console.log('7️⃣ [USER] Response:', sessionRes);
+//       console.log('7️⃣ [USER] Response.success:', sessionRes?.success);
+//       console.log('7️⃣ [USER] Response.data:', sessionRes?.data);
+//       console.log('7️⃣ [USER] Response.data.sessionId:', sessionRes?.data?.sessionId);
+
+//       if (!sessionRes || !sessionRes.success) {
+//         console.error('❌ [USER] API call failed');
+//         console.error('❌ [USER] Response:', sessionRes);
+//         throw new Error(sessionRes?.message || 'Failed to create session');
+//       }
+
+//       const sessionId = sessionRes.data?.sessionId;
+//       if (!sessionId) {
+//         console.error('❌ [USER] No sessionId in response');
+//         throw new Error('No sessionId in response');
+//       }
+
+//       console.log('8️⃣ [USER] Session created with ID:', sessionId);
+
+//       setChatSessionId(sessionId);
+//       setChatStatus('waiting');
+//       console.log('9️⃣ [USER] State updated - sessionId and status set');
+
+//       // ✅ STEP 2: Socket Event to Notify Astrologer
+//       const requestData = {
+//         userId: USER_ID,
+//         astrologerId: ASTROLOGER_ID,
+//         threadId: sessionId,
+//       };
+
+//       console.log('🔟 [USER] About to emit chat_request');
+//       console.log('🔟 [USER] Request data:', requestData);
+//       console.log('🔟 [USER] Socket connected?', chatSocket.isConnected());
+
+//       chatSocket.emit('chat_request', requestData, (resp) => {
+//         console.log('1️⃣1️⃣ [USER] chat_request callback received');
+//         console.log('1️⃣1️⃣ [USER] Callback response:', resp);
+        
+//         if (resp && !resp.success) {
+//           console.error('❌ [USER] Chat request callback failed:', resp.message);
+//           setChatStatus('idle');
+//           Alert.alert('Request Failed', resp.message);
+//         } else {
+//           console.log('✅ [USER] Chat request callback success');
+//         }
+//       });
+
+//       console.log('1️⃣2️⃣ [USER] chat_request emitted successfully');
+//       console.log('==========================================');
+//     } catch (err) {
+//       console.error('==========================================');
+//       console.error('❌ [USER] EXCEPTION CAUGHT');
+//       console.error('❌ [USER] Error message:', err.message);
+//       console.error('❌ [USER] Error stack:', err.stack);
+//       console.error('❌ [USER] Full error:', err);
+//       console.error('==========================================');
+//       setChatStatus('idle');
+//       Alert.alert('Error', err.message);
+//     }
+//   };
+
+//   // ============================================
+//   // SEND MESSAGE
+//   // ============================================
+//   const sendMessage = () => {
+//     if (!chatSessionId || chatStatus !== 'active') {
+//       Alert.alert('Wait', 'Chat is not active yet. Waiting for astrologer...');
+//       console.warn('⚠️ [USER] Cannot send - chat status:', chatStatus);
+//       return;
+//     }
+
+//     if (!input.trim()) {
+//       console.warn('⚠️ [USER] Empty message - not sending');
+//       return;
+//     }
+
+//     const messageData = {
+//       threadId: chatSessionId,
+//       senderId: USER_ID,
+//       receiverId: ASTROLOGER_ID,
+//       message: input.trim(),
+//     };
+
+//     console.log('📤 [USER] Sending message:', messageData);
+
+//     chatSocket.emit('send_message', messageData);
+
+//     setMessages((prev) => [
+//       {
+//         _id: Date.now(),
+//         text: input.trim(),
+//         user: { _id: 'user' },
+//         createdAt: new Date(),
+//       },
+//       ...prev,
+//     ]);
+
+//     setInput('');
+//   };
+
+//   // ============================================
+//   // END CHAT
+//   // ============================================
+//   const handleEndChat = async () => {
+//     if (!chatSessionId) return;
+
+//     Alert.alert(
+//       'End Chat?',
+//       'Are you sure you want to end this chat session?',
+//       [
+//         { text: 'Cancel', style: 'cancel' },
+//         {
+//           text: 'End Chat',
+//           style: 'destructive',
+//           onPress: async () => {
+//             try {
+//               console.log('🔚 [USER] Ending chat session');
+
+//               const response = await ChatService.endChatSession(
+//                 chatSessionId,
+//                 'Session ended by user'
+//               );
+
+//               if (!response.success) {
+//                 throw new Error(response.message);
+//               }
+
+//               setChatStatus('ended');
+//               setChatSessionId(null);
+//               setMessages([]);
+
+//               Alert.alert(
+//                 'Chat Ended',
+//                 `Duration: ${response.data.duration} mins\nTotal: ₹${response.data.totalAmount}`,
+//                 [{ text: 'OK', onPress: () => navigation.goBack() }]
+//               );
+//             } catch (error) {
+//               console.error('❌ [USER] End chat error:', error);
+//               Alert.alert('Error', error.message);
+//             }
+//           },
+//         },
+//       ]
+//     );
+//   };
+
+//   // ============================================
+//   // RENDER MESSAGE
+//   // ============================================
+//   const renderMessage = ({ item }) => {
+//     const isUser = item.user?._id === 'user';
+//     return (
+//       <View
+//         style={[
+//           styles.messageBubble,
+//           isUser ? styles.userBubble : styles.astrologerBubble,
+//         ]}
+//       >
+//         <Text style={styles.messageText}>{item.text}</Text>
+//       </View>
+//     );
+//   };
+
+//   // ============================================
+//   // UI RENDER
+//   // ============================================
+//   return (
+//     <SafeAreaView style={styles.container}>
+//       {/* Socket Status Bar */}
+//       <View style={styles.statusBar}>
+//         <View
+//           style={[
+//             styles.statusDot,
+//             { backgroundColor: isSocketConnected ? '#4CAF50' : '#F44336' },
+//           ]}
+//         />
+//         <Text style={styles.statusText}>
+//           {isSocketConnected ? 'Connected' : 'Disconnected'}
+//         </Text>
+//         {socketId && (
+//           <Text style={styles.socketIdText}> • {socketId.substring(0, 8)}</Text>
+//         )}
+
+//         {/* End Chat Button */}
+//         {chatStatus === 'active' && (
+//           <TouchableOpacity onPress={handleEndChat} style={styles.endBtn}>
+//             <Text style={styles.endBtnText}>End</Text>
+//           </TouchableOpacity>
+//         )}
+//       </View>
+
+//       {/* Start Chat Button */}
+//       {chatStatus === 'idle' && !chatSessionId && (
+//         <TouchableOpacity
+//           style={[
+//             styles.startChatBtn,
+//             !isSocketConnected && styles.startChatBtnDisabled,
+//           ]}
+//           onPress={handleStartChat}
+//           disabled={!isSocketConnected}
+//         >
+//           <Text style={styles.startChatBtnText}>
+//             {!isSocketConnected
+//               ? 'Connecting to server...'
+//               : 'Start Chat with Astrologer'}
+//           </Text>
+//         </TouchableOpacity>
+//       )}
+
+//       {/* Loading State */}
+//       {chatStatus === 'loading' && (
+//         <View style={styles.centerContainer}>
+//           <ActivityIndicator size="large" color="#007AFF" />
+//           <Text style={styles.statusMessage}>Creating session...</Text>
+//         </View>
+//       )}
+
+//       {/* Waiting for Acceptance */}
+//       {chatStatus === 'waiting' && (
+//         <View style={styles.centerContainer}>
+//           <ActivityIndicator size="large" color="#007AFF" />
+//           <Text style={styles.statusMessage}>
+//             Waiting for astrologer to accept...
+//           </Text>
+//         </View>
+//       )}
+
+//       {/* Active Chat - Messages List */}
+//       {chatStatus === 'active' && (
+//         <>
+//           <FlatList
+//             ref={flatListRef}
+//             data={messages}
+//             inverted
+//             keyExtractor={(item) => item._id.toString()}
+//             renderItem={renderMessage}
+//             contentContainerStyle={{ padding: 12 }}
+//           />
+
+//           {/* Input Area */}
+//           <KeyboardAvoidingView
+//             style={styles.inputContainer}
+//             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+//           >
+//             <TextInput
+//               value={input}
+//               onChangeText={setInput}
+//               placeholder="Type your message"
+//               style={styles.input}
+//             />
+//             <TouchableOpacity onPress={sendMessage} style={styles.sendBtn}>
+//               <Icon name="send" size={28} color="#007AFF" />
+//             </TouchableOpacity>
+//           </KeyboardAvoidingView>
+//         </>
+//       )}
+
+//       {/* Chat Ended */}
+//       {chatStatus === 'ended' && (
+//         <View style={styles.centerContainer}>
+//           <Text style={styles.endedText}>Chat session has ended</Text>
+//           <TouchableOpacity
+//             style={styles.backBtn}
+//             onPress={() => navigation.goBack()}
+//           >
+//             <Text style={styles.backBtnText}>Go Back</Text>
+//           </TouchableOpacity>
+//         </View>
+//       )}
+//     </SafeAreaView>
+//   );
+// };
+
+// // Styles remain the same...
+// const styles = StyleSheet.create({
+//   container: { flex: 1, backgroundColor: '#fff' },
+//   statusBar: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     padding: 12,
+//     backgroundColor: '#f5f5f5',
+//     borderBottomWidth: 1,
+//     borderBottomColor: '#e0e0e0',
+//   },
+//   statusDot: {
+//     width: 10,
+//     height: 10,
+//     borderRadius: 5,
+//     marginRight: 8,
+//   },
+//   statusText: { fontSize: 13, fontWeight: '600', color: '#333' },
+//   socketIdText: { fontSize: 11, color: '#666', flex: 1 },
+//   endBtn: {
+//     backgroundColor: '#FF3B30',
+//     paddingHorizontal: 12,
+//     paddingVertical: 6,
+//     borderRadius: 6,
+//   },
+//   endBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+//   startChatBtn: {
+//     backgroundColor: '#007AFF',
+//     padding: 15,
+//     margin: 12,
+//     borderRadius: 10,
+//     alignItems: 'center',
+//   },
+//   startChatBtnDisabled: { backgroundColor: '#CCCCCC' },
+//   startChatBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+//   centerContainer: {
+//     flex: 1,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//   },
+//   statusMessage: {
+//     marginTop: 12,
+//     fontSize: 14,
+//     color: '#666',
+//     fontStyle: 'italic',
+//   },
+//   messageBubble: {
+//     borderRadius: 15,
+//     padding: 12,
+//     marginVertical: 6,
+//     maxWidth: '75%',
+//   },
+//   userBubble: {
+//     backgroundColor: '#DCF8C6',
+//     alignSelf: 'flex-end',
+//   },
+//   astrologerBubble: {
+//     backgroundColor: '#E5E5EA',
+//     alignSelf: 'flex-start',
+//   },
+//   messageText: { fontSize: 16, color: '#000' },
+//   inputContainer: {
+//     flexDirection: 'row',
+//     padding: 12,
+//     borderTopWidth: 1,
+//     borderColor: '#eee',
+//     backgroundColor: '#fff',
+//     alignItems: 'center',
+//   },
+//   input: {
+//     flex: 1,
+//     paddingHorizontal: 12,
+//     height: 44,
+//     fontSize: 16,
+//     backgroundColor: '#f1f1f1',
+//     borderRadius: 24,
+//   },
+//   sendBtn: { marginLeft: 12 },
+//   endedText: { fontSize: 18, color: '#999', marginBottom: 20 },
+//   backBtn: {
+//     backgroundColor: '#007AFF',
+//     paddingHorizontal: 24,
+//     paddingVertical: 12,
+//     borderRadius: 8,
+//   },
+//   backBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+// });
+
+// export default ChatScreen;
+
+
+// src/screens/chat/ChatScreen.js (USER SIDE - UPDATED)
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -336,176 +2018,315 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-// import chatSocket from '../../service/api/socket/chatSocket';
 import { ChatService } from '../../services/api/chat/ChatService';
 import chatSocket from '../../services/api/socket/chatSocket';
 
-const USER_ID = '68eba7c81bd75c055cf164ab'; // Replace with real login ID from redux/auth
-const ASTROLOGER_ID = '68f55913fcac5b00b4225a8e'; // Replace with actual astrologer
+const USER_ID = '68eba7c81bd75c055cf164ab';
+const ASTROLOGER_ID = '68f55913fcac5b00b4225a8e';
 
 const ChatScreen = ({ navigation }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [chatSessionId, setChatSessionId] = useState(null);
-  const [chatStatus, setChatStatus] = useState('idle'); // idle | waiting | active | rejected
+  const [chatStatus, setChatStatus] = useState('idle');
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [socketId, setSocketId] = useState(null);
   const flatListRef = useRef(null);
 
-  // 1. Setup socket connection
+  const chatSessionIdRef = useRef(null);
+
   useEffect(() => {
+    chatSessionIdRef.current = chatSessionId;
+  }, [chatSessionId]);
+
+  useEffect(() => {
+    console.log('🔄 [USER] Initializing socket connection...');
     chatSocket.connect(USER_ID);
 
-    // Listen events
-    chatSocket.on('chat_accepted', (data) => {
-        console.log('✅ Socket connected with id:', chatSocket.socket.id);
-      if (data.threadId === chatSessionId) {
-        setChatStatus('active');
-        Alert.alert('Chat Accepted', 'Astrologer accepted your chat request.');
+    chatSocket.on('connect', () => {
+      setIsSocketConnected(true);
+      setSocketId(chatSocket.getSocketId());
+      if (USER_ID) {
+        chatSocket.emit('join_room', USER_ID);
       }
     });
+
+    chatSocket.on('disconnect', (reason) => {
+      setIsSocketConnected(false);
+      setSocketId(null);
+    });
+
+    chatSocket.on('connect_error', (error) => {
+      Alert.alert('Connection Error', `Socket failed: ${error.message}`);
+    });
+
+    // Listen for chat accepted event
+    chatSocket.on('chat_accepted', (data) => {
+      console.log('[USER] Chat accepted by astrologer:', data);
+      if (data.threadId === chatSessionIdRef.current) {
+        setChatStatus('active');
+        Alert.alert('Chat Started! 🎉', 'Astrologer has accepted your request. You can now chat!');
+      }
+    });
+
+    // Listen for chat rejected event
     chatSocket.on('chat_rejected', (data) => {
-      if (data.threadId === chatSessionId) {
+      console.log('[USER] Chat rejected by astrologer:', data);
+      if (data.threadId === chatSessionIdRef.current) {
         setChatStatus('rejected');
-        Alert.alert('Chat Rejected', 'Astrologer rejected your chat request.');
+        Alert.alert('Chat Declined', 'Astrologer rejected the request. Amount has been refunded to your wallet.');
         setChatSessionId(null);
         setMessages([]);
       }
     });
+
+    // Listen for new messages
     chatSocket.on('chat_message', (msg) => {
-      if (msg.threadId === chatSessionId) {
+      if (msg.threadId === chatSessionIdRef.current) {
         setMessages((prev) => [
           {
-            _id: Date.now(),
+            _id: Date.now() + Math.random(),
             text: msg.message,
-            user: { _id: msg.senderId === USER_ID ? 'user' : 'consultant' },
+            user: { _id: msg.senderId === USER_ID ? 'user' : 'astrologer' },
+            createdAt: new Date(),
           },
           ...prev,
         ]);
       }
     });
 
-    // Cleanup
+    // Listen for chat ended by astrologer
+    chatSocket.on('chat_ended', (data) => {
+      if (data.threadId === chatSessionIdRef.current) {
+        setChatStatus('ended');
+        Alert.alert(
+          'Chat Ended',
+          `Duration: ${data.duration || 'N/A'} mins\nTotal: ₹${data.totalAmount || 'N/A'}`,
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      }
+    });
+
     return () => {
+      chatSocket.off('connect');
+      chatSocket.off('disconnect');
+      chatSocket.off('connect_error');
       chatSocket.off('chat_accepted');
       chatSocket.off('chat_rejected');
       chatSocket.off('chat_message');
+      chatSocket.off('chat_ended');
       chatSocket.disconnect();
     };
-  }, [chatSessionId]);
+  }, []);
 
-  // 2. Start chat session via API, then emit socket event
   const handleStartChat = async () => {
     try {
-      setChatStatus('loading');
-      // First call API to initiate chat, get session info
-      const sessionRes = await ChatService.initiateChat(ASTROLOGER_ID);
-      console.log('Calling API:', ChatService.defaults.baseURL + '/chat/initiate');
+      if (!isSocketConnected) {
+        Alert.alert('Connection Error', 'Socket not connected. Please restart app and try again.');
+        return;
+      }
 
-      if (!sessionRes.success) throw new Error(sessionRes.message);
-      setChatSessionId(sessionRes.data.sessionId);
+      setChatStatus('loading');
+
+      const sessionRes = await ChatService.initiateChat(ASTROLOGER_ID);
+
+      if (!sessionRes || !sessionRes.success) {
+        throw new Error(sessionRes?.message || 'Failed to create session');
+      }
+
+      const sessionId = sessionRes.data?.sessionId;
+      if (!sessionId) throw new Error('No sessionId in response');
+
+      setChatSessionId(sessionId);
       setChatStatus('waiting');
 
-      // Emit socket event for chat request
-      chatSocket.emit('chat_request',
-        { userId: USER_ID, astrologerId: ASTROLOGER_ID, threadId: sessionRes.data.sessionId },
-        (resp) => {
-          if (resp && !resp.success) {
-            setChatStatus('idle');
-            Alert.alert('Chat Failed', resp.message);
-          }
+      // Notify astrologer via socket
+      const requestData = {
+        userId: USER_ID,
+        astrologerId: ASTROLOGER_ID,
+        threadId: sessionId,
+      };
+
+      chatSocket.emit('chat_request', requestData, (resp) => {
+        if (resp && !resp.success) {
+          Alert.alert('Request Failed', resp.message);
+          setChatStatus('idle');
         }
-      );
+      });
     } catch (err) {
       setChatStatus('idle');
-      Alert.alert('Chat Error', err.message);
+      Alert.alert('Error', err.message);
     }
   };
 
-  // 3. Send chat message via socket
   const sendMessage = () => {
     if (!chatSessionId || chatStatus !== 'active') {
-      Alert.alert('Wait', 'Chat not active yet.');
+      Alert.alert('Wait', 'Chat is not active yet. Waiting for astrologer...');
       return;
     }
-    if (input.trim()) {
-      chatSocket.emit('send_message', {
-        threadId: chatSessionId,
-        senderId: USER_ID,
-        message: input.trim(),
-      });
-      setMessages((prev) => [
-        {
-          _id: Date.now(),
-          text: input.trim(),
-          user: { _id: 'user' },
-        },
-        ...prev,
-      ]);
-      setInput('');
-    }
+    if (!input.trim()) return;
+
+    const messageData = {
+      threadId: chatSessionId,
+      senderId: USER_ID,
+      receiverId: ASTROLOGER_ID,
+      message: input.trim(),
+    };
+
+    chatSocket.emit('send_message', messageData);
+
+    setMessages((prev) => [
+      {
+        _id: Date.now(),
+        text: input.trim(),
+        user: { _id: 'user' },
+        createdAt: new Date(),
+      },
+      ...prev,
+    ]);
+    setInput('');
   };
 
-  // 4. Render UI messages
+  const handleEndChat = async () => {
+    if (!chatSessionId) return;
+
+    Alert.alert(
+      'End Chat?',
+      'Are you sure you want to end this chat session?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End Chat',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await ChatService.endChatSession(chatSessionId, 'Session ended by user');
+              if (!response.success) throw new Error(response.message);
+
+              setChatStatus('ended');
+              setChatSessionId(null);
+              setMessages([]);
+
+              Alert.alert('Chat Ended', `Duration: ${response.data.duration} mins\nTotal: ₹${response.data.totalAmount}`, [
+                { text: 'OK', onPress: () => navigation.goBack() },
+              ]);
+            } catch (error) {
+              Alert.alert('Error', error.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Render messages
   const renderMessage = ({ item }) => {
     const isUser = item.user?._id === 'user';
     return (
-      <View
-        style={[
-          styles.messageBubble,
-          isUser ? styles.userBubble : styles.consultantBubble,
-        ]}
-      >
-        <Text style={isUser ? styles.userText : styles.consultantText}>
-          {item.text}
-        </Text>
+      <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.astrologerBubble]}>
+        <Text style={styles.messageText}>{item.text}</Text>
       </View>
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {!chatSessionId && (
-        <TouchableOpacity style={styles.startChatBtn} onPress={handleStartChat} disabled={chatStatus === 'loading'}>
+      <View style={styles.statusBar}>
+        <View style={[styles.statusDot, { backgroundColor: isSocketConnected ? '#4CAF50' : '#F44336' }]} />
+        <Text style={styles.statusText}>{isSocketConnected ? 'Connected' : 'Disconnected'}</Text>
+        {socketId && <Text style={styles.socketIdText}> • {socketId.substring(0, 8)}</Text>}
+        {chatStatus === 'active' && (
+          <TouchableOpacity onPress={handleEndChat} style={styles.endBtn}>
+            <Text style={styles.endBtnText}>End</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {chatStatus === 'idle' && !chatSessionId && (
+        <TouchableOpacity
+          style={[styles.startChatBtn, !isSocketConnected && styles.startChatBtnDisabled]}
+          onPress={handleStartChat}
+          disabled={!isSocketConnected}
+        >
           <Text style={styles.startChatBtnText}>
-            {chatStatus === 'loading' ? 'Starting...' : 'Start Chat with Astrologer'}
+            {!isSocketConnected ? 'Connecting to server...' : 'Start Chat with Astrologer'}
           </Text>
         </TouchableOpacity>
       )}
-      {chatStatus === 'waiting' && (
-        <Text style={{ color: '#007AFF', textAlign: 'center', margin: 12 }}>
-          Waiting for astrologer to accept...
-        </Text>
+
+      {chatStatus === 'loading' && (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.statusMessage}>Creating session...</Text>
+        </View>
       )}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        inverted
-        keyExtractor={item => item._id.toString()}
-        renderItem={renderMessage}
-        contentContainerStyle={{ padding: 12 }}
-      />
-      <KeyboardAvoidingView
-        style={styles.inputContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <TextInput
-          value={input}
-          onChangeText={setInput}
-          placeholder="Type your message"
-          style={styles.input}
-          editable={chatStatus === 'active'}
-        />
-        <TouchableOpacity onPress={sendMessage} style={styles.sendBtn} disabled={chatStatus !== 'active'}>
-          <Icon name="send" size={28} color="#007AFF" />
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
+
+      {chatStatus === 'waiting' && (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.statusMessage}>Waiting for astrologer to accept...</Text>
+        </View>
+      )}
+
+      {chatStatus === 'active' && (
+        <>
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            inverted
+            keyExtractor={(item) => item._id.toString()}
+            renderItem={renderMessage}
+            contentContainerStyle={{ padding: 12 }}
+          />
+          <KeyboardAvoidingView style={styles.inputContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <TextInput value={input} onChangeText={setInput} placeholder="Type your message" style={styles.input} />
+            <TouchableOpacity onPress={sendMessage} style={styles.sendBtn}>
+              <Icon name="send" size={28} color="#007AFF" />
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </>
+      )}
+
+      {chatStatus === 'ended' && (
+        <View style={styles.centerContainer}>
+          <Text style={styles.endedText}>Chat session has ended</Text>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Text style={styles.backBtnText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
+  statusBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f5f5f5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 8,
+  },
+  statusText: { fontSize: 13, fontWeight: '600', color: '#333' },
+  socketIdText: { fontSize: 11, color: '#666', flex: 1 },
+  endBtn: {
+    backgroundColor: '#FF3B30',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  endBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   startChatBtn: {
     backgroundColor: '#007AFF',
     padding: 15,
@@ -513,7 +2334,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
+  startChatBtnDisabled: { backgroundColor: '#CCCCCC' },
   startChatBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusMessage: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
   messageBubble: {
     borderRadius: 15,
     padding: 12,
@@ -524,12 +2357,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCF8C6',
     alignSelf: 'flex-end',
   },
-  consultantBubble: {
+  astrologerBubble: {
     backgroundColor: '#E5E5EA',
     alignSelf: 'flex-start',
   },
-  userText: { fontSize: 16, color: '#000' },
-  consultantText: { fontSize: 16, color: '#000' },
+  messageText: { fontSize: 16, color: '#000' },
   inputContainer: {
     flexDirection: 'row',
     padding: 12,
@@ -546,9 +2378,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f1f1',
     borderRadius: 24,
   },
-  sendBtn: {
-    marginLeft: 12,
+  sendBtn: { marginLeft: 12 },
+  endedText: { fontSize: 18, color: '#999', marginBottom: 20 },
+  backBtn: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
   },
+  backBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
 
 export default ChatScreen;

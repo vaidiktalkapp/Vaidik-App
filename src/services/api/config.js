@@ -4,9 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { API_BASE_URL } from '@env';
 
 // API Base URL
-// const API_BASE_URL = 'http://192.168.1.19:3001/api/v1';
+const API_BASE_URL = 'http://192.168.1.18:3001/api/v1';
 // const API_BASE_URL = 'http://192.168.1.10:3001/api/v1';
-const API_BASE_URL = 'https://vaidik-server.onrender.com/api/v1'
+// const API_BASE_URL = 'https://vaidik-server.onrender.com/api/v1'
 
 console.log('🌍 API Base URL:', API_BASE_URL);
 

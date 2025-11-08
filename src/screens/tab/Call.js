@@ -279,11 +279,11 @@ const Call = ({ navigation }) => {
     loadWalletBalance();
     loadRecentOrders();
     loadAstrologers(true);
-  }, );
+  },[]);
 
   useEffect(() => {
     loadAstrologers(true);
-  }, );
+  },[]);
 
   // Handle call button press
   const handleCallPress = async (astrologer) => {

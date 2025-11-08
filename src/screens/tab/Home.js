@@ -82,7 +82,7 @@ const Home = ({ navigation }) => {
       clearInterval(bannerInterval);
       clearInterval(liveInterval);
     };
-  }, );
+  },[]);
 
   // ✅ Load all home screen data
   const loadHomeData = async () => {
